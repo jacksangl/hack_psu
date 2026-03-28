@@ -1,6 +1,6 @@
 import type { Sentiment } from "../utils/sentimentColors";
 
-export type NewsCategory = "politics" | "economics" | "environment" | "technology" | "disaster" | "health";
+export type NewsCategory = "politics" | "conflict" | "economy" | "business" | "climate" | "health" | "technology" | "sports" | "culture" | "diplomacy";
 
 export interface Article {
   id: string;
@@ -58,7 +58,7 @@ const NEWS_DATA: Record<string, NewsResponse> = {
         lng: -77.04,
         sentiment: "positive",
         relatedCountries: ["GB", "DE", "JP"],
-        category: "economics",
+        category: "economy",
       },
       {
         id: "us-2",
@@ -70,7 +70,7 @@ const NEWS_DATA: Record<string, NewsResponse> = {
         lng: -95.37,
         sentiment: "crisis",
         relatedCountries: [],
-        category: "disaster",
+        category: "climate",
       },
       {
         id: "us-3",
@@ -136,7 +136,7 @@ const NEWS_DATA: Record<string, NewsResponse> = {
         lng: -46.63,
         sentiment: "negative",
         relatedCountries: ["US", "AR"],
-        category: "economics",
+        category: "economy",
       },
       {
         id: "br-4",
@@ -148,7 +148,7 @@ const NEWS_DATA: Record<string, NewsResponse> = {
         lng: -51.18,
         sentiment: "negative",
         relatedCountries: ["CN", "US"],
-        category: "disaster",
+        category: "climate",
       },
     ],
   },
@@ -166,7 +166,7 @@ const NEWS_DATA: Record<string, NewsResponse> = {
         lng: 77.21,
         sentiment: "positive",
         relatedCountries: ["US", "JP"],
-        category: "economics",
+        category: "economy",
       },
       {
         id: "in-2",
@@ -190,7 +190,7 @@ const NEWS_DATA: Record<string, NewsResponse> = {
         lng: 70.91,
         sentiment: "negative",
         relatedCountries: [],
-        category: "disaster",
+        category: "climate",
       },
       {
         id: "in-4",
@@ -220,7 +220,7 @@ const NEWS_DATA: Record<string, NewsResponse> = {
         lng: 8.68,
         sentiment: "positive",
         relatedCountries: ["CN", "US"],
-        category: "economics",
+        category: "economy",
       },
       {
         id: "de-2",
@@ -262,7 +262,7 @@ const NEWS_DATA: Record<string, NewsResponse> = {
         lng: 116.4,
         sentiment: "neutral",
         relatedCountries: ["US", "JP"],
-        category: "economics",
+        category: "economy",
       },
       {
         id: "cn-2",
@@ -298,7 +298,7 @@ const NEWS_DATA: Record<string, NewsResponse> = {
         lng: 113.26,
         sentiment: "crisis",
         relatedCountries: [],
-        category: "disaster",
+        category: "climate",
       },
     ],
   },
@@ -328,7 +328,7 @@ const NEWS_DATA: Record<string, NewsResponse> = {
         lng: 7.49,
         sentiment: "neutral",
         relatedCountries: [],
-        category: "economics",
+        category: "economy",
       },
       {
         id: "ng-3",
@@ -352,7 +352,7 @@ const NEWS_DATA: Record<string, NewsResponse> = {
         lng: 3.41,
         sentiment: "positive",
         relatedCountries: ["CN"],
-        category: "economics",
+        category: "economy",
       },
     ],
   },
@@ -394,7 +394,7 @@ const NEWS_DATA: Record<string, NewsResponse> = {
         lng: 36.23,
         sentiment: "crisis",
         relatedCountries: ["RU"],
-        category: "disaster",
+        category: "conflict",
       },
       {
         id: "ua-4",
@@ -418,7 +418,7 @@ const NEWS_DATA: Record<string, NewsResponse> = {
         lng: 30.73,
         sentiment: "positive",
         relatedCountries: [],
-        category: "disaster",
+        category: "conflict",
       },
     ],
   },
@@ -436,7 +436,7 @@ const NEWS_DATA: Record<string, NewsResponse> = {
         lng: 149.13,
         sentiment: "positive",
         relatedCountries: ["JP", "US"],
-        category: "economics",
+        category: "economy",
       },
       {
         id: "au-2",
@@ -448,7 +448,7 @@ const NEWS_DATA: Record<string, NewsResponse> = {
         lng: 147.7,
         sentiment: "crisis",
         relatedCountries: [],
-        category: "environment",
+        category: "climate",
       },
       {
         id: "au-3",
@@ -460,7 +460,7 @@ const NEWS_DATA: Record<string, NewsResponse> = {
         lng: 151.21,
         sentiment: "neutral",
         relatedCountries: [],
-        category: "economics",
+        category: "economy",
       },
     ],
   },

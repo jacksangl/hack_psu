@@ -5,6 +5,7 @@ import {
   type NewsResponse,
   type BriefResponse,
   type SentimentResponse,
+  type NewsCategory,
 } from "./mockData";
 import type { Sentiment } from "../utils/sentimentColors";
 
@@ -25,6 +26,25 @@ function labelToScore(label: string): number {
   return 0;
 }
 
+const TOPIC_TO_CATEGORY: Record<string, NewsCategory> = {
+  politics: "politics",
+  conflict: "conflict",
+  economy: "economy",
+  business: "business",
+  climate: "climate",
+  health: "health",
+  technology: "technology",
+  sports: "sports",
+  culture: "culture",
+  diplomacy: "diplomacy",
+};
+
+function topicsToCategory(topics?: string[]): NewsCategory {
+  if (!topics || topics.length === 0) return "politics";
+  const first = topics[0].toLowerCase();
+  return TOPIC_TO_CATEGORY[first] ?? "politics";
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function transformNews(raw: any): NewsResponse {
   return {
@@ -43,6 +63,7 @@ function transformNews(raw: any): NewsResponse {
         a.sentiment?.score
       ),
       relatedCountries: a.relatedCountries ?? [],
+      category: topicsToCategory(a.topics),
     })),
   };
 }

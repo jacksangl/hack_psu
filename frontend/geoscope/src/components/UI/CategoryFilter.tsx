@@ -1,13 +1,15 @@
 import { useGlobeStore } from "../../store/globeStore";
 import type { NewsCategory } from "../../api/mockData";
 
-const CATEGORIES: { value: NewsCategory; label: string; icon: string }[] = [
-  { value: "politics", label: "Politics", icon: "🏛️" },
-  { value: "economics", label: "Economics", icon: "💰" },
-  { value: "technology", label: "Technology", icon: "🚀" },
-  { value: "environment", label: "Environment", icon: "🌍" },
-  { value: "disaster", label: "Disaster", icon: "⚠️" },
-  { value: "health", label: "Health", icon: "🏥" },
+const CATEGORIES: { value: NewsCategory; label: string }[] = [
+  { value: "politics", label: "Politics" },
+  { value: "conflict", label: "Conflict" },
+  { value: "economy", label: "Economy" },
+  { value: "business", label: "Business" },
+  { value: "climate", label: "Climate" },
+  { value: "health", label: "Health" },
+  { value: "technology", label: "Tech" },
+  { value: "diplomacy", label: "Diplomacy" },
 ];
 
 export function CategoryFilter() {
@@ -16,16 +18,16 @@ export function CategoryFilter() {
 
   return (
     <div className="flex items-center gap-2 px-4 py-2">
-      <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-        Filter:
+      <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest mr-1">
+        Filter
       </span>
-      <div className="flex gap-2 flex-wrap">
+      <div className="flex gap-1.5 flex-wrap">
         <button
           onClick={() => setSelectedCategory(null)}
-          className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 ${
+          className={`px-2.5 py-1 rounded text-xs font-medium transition-colors duration-150 ${
             selectedCategory === null
-              ? "bg-accent-teal text-slate-900"
-              : "bg-slate-800 text-slate-300 hover:bg-slate-700"
+              ? "bg-accent-teal/15 text-accent-teal border border-accent-teal/30"
+              : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 border border-transparent"
           }`}
         >
           All
@@ -33,14 +35,17 @@ export function CategoryFilter() {
         {CATEGORIES.map((cat) => (
           <button
             key={cat.value}
-            onClick={() => setSelectedCategory(cat.value)}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 flex items-center gap-1.5 ${
+            onClick={() =>
+              setSelectedCategory(
+                selectedCategory === cat.value ? null : cat.value
+              )
+            }
+            className={`px-2.5 py-1 rounded text-xs font-medium transition-colors duration-150 ${
               selectedCategory === cat.value
-                ? "bg-accent-teal text-slate-900"
-                : "bg-slate-800 text-slate-300 hover:bg-slate-700"
+                ? "bg-accent-teal/15 text-accent-teal border border-accent-teal/30"
+                : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 border border-transparent"
             }`}
           >
-            <span>{cat.icon}</span>
             {cat.label}
           </button>
         ))}
