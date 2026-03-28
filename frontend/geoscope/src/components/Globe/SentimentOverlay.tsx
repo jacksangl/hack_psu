@@ -1,0 +1,78 @@
+import { useMemo } from "react";
+import * as THREE from "three";
+import { useGlobeStore } from "../../store/globeStore";
+import { getCountryByCode } from "../../utils/countryData";
+import { latLngToVector3 } from "../../utils/geoHelpers";
+import { sentimentToHex, type Sentiment } from "../../utils/sentimentColors";
+
+function SentimentDot({
+  lat,
+  lng,
+  sentiment,
+}: {
+  lat: number;
+  lng: number;
+  sentiment: Sentiment;
+}) {
+  const position = useMemo(() => latLngToVector3(lat, lng, 2.005), [lat, lng]);
+  const quaternion = useMemo(() => {
+    const normal = position.clone().normalize();
+    const q = new THREE.Quaternion();
+    q.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
+    return q;
+  }, [position]);
+
+  const color = sentimentToHex(sentiment);
+
+  return (
+    <mesh position={position} quaternion={quaternion}>
+      <circleGeometry args={[0.06, 24]} />
+      <meshBasicMaterial
+        color={color}
+        transparent
+        opacity={0.35}
+        side={THREE.DoubleSide}
+        depthWrite={false}
+        blending={THREE.AdditiveBlending}
+      />
+    </mesh>
+  );
+}
+
+export function SentimentOverlay() {
+  const globalSentiment = useGlobeStore((s) => s.globalSentiment);
+
+  const dots = useMemo(() => {
+    const entries = Object.values(globalSentiment);
+    return entries
+      .map((entry) => {
+        const country = getCountryByCode(entry.countryCode);
+        if (!country) return null;
+        return {
+          key: entry.countryCode,
+          lat: country.lat,
+          lng: country.lng,
+          sentiment: entry.sentiment,
+        };
+      })
+      .filter(Boolean) as {
+      key: string;
+      lat: number;
+      lng: number;
+      sentiment: Sentiment;
+    }[];
+  }, [globalSentiment]);
+
+  return (
+    <group>
+      {dots.map((dot) => (
+        <SentimentDot
+          key={dot.key}
+          lat={dot.lat}
+          lng={dot.lng}
+          sentiment={dot.sentiment}
+        />
+      ))}
+    </group>
+  );
+}
