@@ -1,26 +1,23 @@
 import { AppError } from "../lib/errors";
-import { logger } from "../lib/logger";
 import type { CacheStore } from "../lib/redis";
-import type { GlobalSentimentEntry, GlobalSentimentResponse } from "../types/sentiment";
+import { NewsRepository } from "../repositories/newsRepository";
+import type { GlobalSentimentResponse } from "../types/sentiment";
 import { cacheKeys } from "../utils/cacheKeys";
-import { averageSentimentScore, labelFromScore } from "../utils/sentiment";
-import { NewsService } from "./newsService";
 
 const SENTIMENT_CACHE_TTL_SECONDS = 30 * 60;
-const PHASE_ONE_TRACKED_COUNTRIES = ["US", "CA", "BR", "GB", "FR", "DE", "ZA", "NG", "IN", "JP", "AU", "UA"];
 
 interface SentimentServiceOptions {
   cacheStore: CacheStore;
-  newsService: NewsService;
+  repository: NewsRepository;
 }
 
 export class SentimentService {
   private readonly cacheStore: CacheStore;
-  private readonly newsService: NewsService;
+  private readonly repository: NewsRepository;
 
   constructor(options: SentimentServiceOptions) {
     this.cacheStore = options.cacheStore;
-    this.newsService = options.newsService;
+    this.repository = options.repository;
   }
 
   async getGlobalSentiment(): Promise<GlobalSentimentResponse> {
@@ -34,59 +31,28 @@ export class SentimentService {
       };
     }
 
-    logger.info("global sentiment phase one fetch started", {
-      countryCount: PHASE_ONE_TRACKED_COUNTRIES.length,
-      scope: "tracked-countries",
-    });
+    const [snapshots, latestSnapshotUpdate] = await Promise.all([
+      this.repository.getGlobalSnapshots(),
+      this.repository.getLatestSnapshotUpdate(),
+    ]);
 
-    const results = await Promise.allSettled(
-      PHASE_ONE_TRACKED_COUNTRIES.map((countryCode) =>
-        this.newsService.getCountryNews({
-          countryCode,
-          limit: 10,
-        }),
-      ),
-    );
-
-    const countries: GlobalSentimentEntry[] = [];
-
-    for (const result of results) {
-      if (result.status === "rejected") {
-        logger.warn("global sentiment phase one country fetch failed", {
-          message: result.reason instanceof Error ? result.reason.message : "unknown tracked country error",
-          scope: "tracked-countries",
-        });
-        continue;
-      }
-
-      if (result.value.articles.length === 0) {
-        continue;
-      }
-
-      const sentimentScore = averageSentimentScore(
-        result.value.articles.map((article) => article.sentiment.score),
-      );
-
-      countries.push({
-        countryCode: result.value.countryCode,
-        countryName: result.value.countryName,
-        sentimentScore,
-        sentimentLabel: labelFromScore(sentimentScore),
-        articleCount: result.value.articles.length,
-      });
-    }
+    const countries = snapshots
+      .filter((snapshot) => !snapshot.isStale)
+      .map((snapshot) => ({
+        articleCount: snapshot.articleCount,
+        countryCode: snapshot.countryCode,
+        countryName: snapshot.countryName,
+        sentimentLabel: snapshot.sentimentLabel,
+        sentimentScore: snapshot.sentimentScore,
+      }));
 
     if (countries.length === 0) {
-      throw new AppError(
-        502,
-        "PROVIDER_ERROR",
-        "Unable to compute global sentiment from the current tracked-country phase.",
-      );
+      throw new AppError(502, "PROVIDER_ERROR", "Unable to compute global sentiment from stored snapshots.");
     }
 
     const response = {
-      updatedAt: new Date().toISOString(),
-      countries: countries.sort((left, right) => left.countryName.localeCompare(right.countryName)),
+      updatedAt: latestSnapshotUpdate ?? new Date().toISOString(),
+      countries,
     };
 
     await this.cacheStore.setJson(cacheKey, response, SENTIMENT_CACHE_TTL_SECONDS);

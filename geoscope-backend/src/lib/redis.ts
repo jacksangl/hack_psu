@@ -14,6 +14,18 @@ interface RedisCacheStoreOptions {
   url: string;
 }
 
+class NullCacheStore implements CacheStore {
+  async connect(): Promise<void> {}
+  async disconnect(): Promise<void> {}
+  async getJson<T>(): Promise<T | null> {
+    return null;
+  }
+  async setJson<T>(): Promise<void> {}
+  async ping(): Promise<boolean> {
+    return false;
+  }
+}
+
 export class RedisCacheStore implements CacheStore {
   private readonly client: RedisClientType;
 
@@ -97,4 +109,4 @@ export class RedisCacheStore implements CacheStore {
   }
 }
 
-export const createCacheStore = (url: string): CacheStore => new RedisCacheStore({ url });
+export const createCacheStore = (url?: string): CacheStore => (url ? new RedisCacheStore({ url }) : new NullCacheStore());

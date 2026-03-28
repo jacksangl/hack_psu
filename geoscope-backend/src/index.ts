@@ -1,14 +1,17 @@
 import dotenv from "dotenv";
 
 import { createApp } from "./app";
+import { Database } from "./lib/db";
 import { parseEnv } from "./lib/env";
 import { logger } from "./lib/logger";
+import { runMigrations } from "./lib/migrations";
 import { createCacheStore } from "./lib/redis";
 import { GdeltProvider } from "./providers/gdeltProvider";
-import { NewsApiProvider } from "./providers/newsApiProvider";
 import { GeminiBriefProvider } from "./providers/geminiBriefProvider";
+import { NewsRepository } from "./repositories/newsRepository";
 import { BriefService } from "./services/briefService";
 import { CompareService } from "./services/compareService";
+import { IngestionService } from "./services/ingestionService";
 import { NewsService } from "./services/newsService";
 import { SentimentService } from "./services/sentimentService";
 
@@ -17,13 +20,15 @@ dotenv.config();
 const start = async (): Promise<void> => {
   const env = parseEnv();
   const cacheStore = createCacheStore(env.REDIS_URL);
+  const database = new Database(env.DATABASE_URL);
 
   await cacheStore.connect();
+  await runMigrations(database);
+  const newsRepository = new NewsRepository(database);
 
   const newsService = new NewsService({
-    primaryProvider: new NewsApiProvider({ apiKey: env.NEWS_API_KEY }),
-    secondaryProvider: new GdeltProvider(),
     cacheStore,
+    repository: newsRepository,
   });
 
   const briefService = new BriefService({
@@ -34,7 +39,7 @@ const start = async (): Promise<void> => {
 
   const sentimentService = new SentimentService({
     cacheStore,
-    newsService,
+    repository: newsRepository,
   });
 
   const compareService = new CompareService({
@@ -43,8 +48,15 @@ const start = async (): Promise<void> => {
     newsService,
   });
 
+  const ingestionService = new IngestionService({
+    provider: new GdeltProvider(),
+    repository: newsRepository,
+  });
+
   const app = createApp({
     cacheStore,
+    ingestApiKey: env.INGEST_API_KEY,
+    ingestionService,
     newsService,
     briefService,
     sentimentService,
@@ -61,6 +73,7 @@ const start = async (): Promise<void> => {
   const shutdown = async (): Promise<void> => {
     server.close(async () => {
       await cacheStore.disconnect();
+      await database.close();
       process.exit(0);
     });
   };

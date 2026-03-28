@@ -296,3 +296,9 @@ export const getCountryName = (countryCode: string): string | null =>
 
 export const getCountryCentroid = (countryCode: string): CountryCentroid | null =>
   centroidMap[normalizeCountryCode(countryCode)] ?? null;
+
+const supportedCountryCodes = Object.keys(countries.getAlpha2Codes()).filter((countryCode) =>
+  Boolean(centroidMap[countryCode] && countries.getName(countryCode, "en")),
+);
+
+export const getSupportedCountryCodes = (): string[] => [...supportedCountryCodes];

@@ -31,4 +31,8 @@ npm-debug.log*
 # Docker
 docker-compose.override.yml
 
+<<<<<<< HEAD
 
+=======
+.env
+>>>>>>> 03165d9 (backend shit)
