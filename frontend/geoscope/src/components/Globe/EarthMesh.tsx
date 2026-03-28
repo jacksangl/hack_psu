@@ -20,7 +20,7 @@ export const EarthMesh = forwardRef<THREE.Group>((_, ref) => {
 
       {/* Atmosphere glow */}
       <mesh>
-        <sphereGeometry args={[2.03, 48, 48]} />
+        <sphereGeometry args={[2.03, 32, 32]} />
         <meshBasicMaterial
           color="#14b8a6"
           transparent

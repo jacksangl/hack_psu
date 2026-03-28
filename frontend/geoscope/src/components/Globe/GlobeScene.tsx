@@ -16,6 +16,8 @@ import { clusterPins, type PinData } from "../../utils/clusterPins";
 import { CameraController } from "./CameraController";
 
 
+const _raycaster = new THREE.Raycaster();
+
 function GlobeContent() {
   const selectedCountry = useGlobeStore((s) => s.selectedCountry);
   const selectCountry = useGlobeStore((s) => s.selectCountry);
@@ -44,12 +46,11 @@ function GlobeContent() {
       if (!threeEvent.point || !threeEvent.ndc) return;
 
       // Use raycaster to verify the click hit the globe mesh
-      const raycaster = new THREE.Raycaster();
-      raycaster.setFromCamera(threeEvent.ndc, camera);
+      _raycaster.setFromCamera(threeEvent.ndc, camera);
 
       // Check if ray intersects with the earth mesh group
       if (!earthMeshRef.current) return;
-      const intersects = raycaster.intersectObject(earthMeshRef.current, true);
+      const intersects = _raycaster.intersectObject(earthMeshRef.current, true);
       if (intersects.length === 0) return; // Click did not hit the globe
 
       // Un-rotate the click point to match fixed lat/lng world space
@@ -216,7 +217,7 @@ export function GlobeScene() {
           powerPreference: "high-performance",
           precision: "lowp",
         }}
-        frameloop="demand"
+        frameloop="always"
         dpr={Math.min(window.devicePixelRatio, 1.5)}
         style={{ background: "#030712" }}
       >

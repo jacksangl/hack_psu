@@ -38,7 +38,7 @@ const SentimentDot = memo(function SentimentDot({
       onPointerOver={() => { document.body.style.cursor = "pointer"; }}
       onPointerOut={() => { document.body.style.cursor = "default"; }}
     >
-      <circleGeometry args={[0.06, 16]} />
+      <circleGeometry args={[0.06, 8]} />
       <meshBasicMaterial
         color={color}
         transparent

@@ -82,7 +82,7 @@ function NewsHeatmapComponent() {
           }
         >
           <ringGeometry
-            args={[ring.innerRadius, ring.outerRadius, 32]}
+            args={[ring.innerRadius, ring.outerRadius, 16]}
           />
           <meshBasicMaterial
             color={ring.color}

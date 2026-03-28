@@ -44,6 +44,7 @@ function NewsPinComponent({
     if (!groupRef.current) return;
     targetScale.current = hovered ? 1.3 : 1;
     const s = groupRef.current.scale.x;
+    if (Math.abs(s - targetScale.current) < 0.001) return;
     const next = THREE.MathUtils.lerp(s, targetScale.current, 0.15);
     groupRef.current.scale.setScalar(next);
   });

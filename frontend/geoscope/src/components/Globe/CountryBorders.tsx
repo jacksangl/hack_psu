@@ -4,8 +4,8 @@ import * as topojson from "topojson-client";
 import type { Topology } from "topojson-specification";
 import { latLngToVector3 } from "../../utils/geoHelpers";
 
-// 50m is higher resolution than 110m — smoother coastlines and borders
-const BORDERS_URL = "https://unpkg.com/world-atlas@2/countries-50m.json";
+// 110m is much smaller than 50m (~150 KB vs ~1 MB) — big perf win
+const BORDERS_URL = "https://unpkg.com/world-atlas@2/countries-110m.json";
 const GLOBE_RADIUS = 2.003;
 
 // Subdivide long segments so lines hug the sphere surface
@@ -20,12 +20,12 @@ function subdivideSegment(
   const p2 = latLngToVector3(lat2, lng2, radius);
   const angle = p1.angleTo(p2);
 
-  // ~3 degrees — reduces segment count for better performance during drag
-  if (angle < 0.052) {
+  // ~5 degrees — fewer subdivisions for better performance
+  if (angle < 0.087) {
     return [p1, p2];
   }
 
-  const steps = Math.ceil(angle / 0.052);
+  const steps = Math.ceil(angle / 0.087);
   const points: THREE.Vector3[] = [];
   for (let i = 0; i <= steps; i++) {
     const t = i / steps;

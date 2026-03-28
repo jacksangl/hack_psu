@@ -42,7 +42,7 @@ export function CountryOverlay() {
       position={position}
       quaternion={quaternion}
     >
-      <ringGeometry args={[0.12, 0.15, 32]} />
+      <ringGeometry args={[0.12, 0.15, 16]} />
       <meshBasicMaterial
         color="#14b8a6"
         transparent

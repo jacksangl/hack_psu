@@ -21,7 +21,7 @@ function ArcLineComponent({ startLat, startLng, endLat, endLng }: ArcLineProps) 
   }, [startLat, startLng, endLat, endLng]);
 
   useFrame((_, delta) => {
-    if (!lineRef.current) return;
+    if (!lineRef.current || progressRef.current >= 1) return;
 
     progressRef.current = Math.min(progressRef.current + delta / 1.2, 1);
     const drawCount = Math.floor(progressRef.current * totalPoints);
