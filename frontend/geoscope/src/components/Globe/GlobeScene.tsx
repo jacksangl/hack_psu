@@ -1,5 +1,5 @@
-import { Suspense, useCallback, useMemo } from "react";
-import { Canvas } from "@react-three/fiber";
+import { Suspense, useCallback, useMemo, useRef } from "react";
+import { Canvas, useFrame } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
 import { EarthMesh } from "./EarthMesh";
@@ -19,6 +19,14 @@ function GlobeContent() {
   const countryNews = useGlobeStore((s) => s.countryNews);
   const connectDotsMode = useGlobeStore((s) => s.connectDotsMode);
 
+  const globeGroupRef = useRef<THREE.Group>(null);
+
+  useFrame(() => {
+    if (!selectedCountry && globeGroupRef.current) {
+      globeGroupRef.current.rotation.y += 0.0005;
+    }
+  });
+
   const handleGlobeClick = useCallback(
     (event: THREE.Event & { point?: THREE.Vector3 }) => {
       const threeEvent = event as unknown as {
@@ -27,7 +35,14 @@ function GlobeContent() {
       };
       if (!threeEvent.point) return;
 
-      const point = threeEvent.point.clone().normalize();
+      // Un-rotate the click point to match fixed lat/lng world space
+      let point = threeEvent.point.clone();
+      if (globeGroupRef.current) {
+        const rotY = globeGroupRef.current.rotation.y;
+        point.applyEuler(new THREE.Euler(0, -rotY, 0));
+      }
+      point.normalize();
+
       let closestCode: string | null = null;
       let closestDist = Infinity;
 
@@ -111,43 +126,44 @@ function GlobeContent() {
 
   return (
     <>
-      <ambientLight intensity={0.3} />
-      <directionalLight position={[-5, 3, 5]} intensity={1.2} />
+      <ambientLight intensity={0.8} />
+      <directionalLight position={[-5, 3, 5]} intensity={1.5} />
+      <directionalLight position={[5, -2, -5]} intensity={0.4} />
 
       <group
+        ref={globeGroupRef}
         onClick={handleGlobeClick as unknown as React.MouseEventHandler}
       >
         <EarthMesh />
+        <SentimentOverlay />
+        <CountryOverlay />
+
+        {pins.map((cluster) => (
+          <NewsPin
+            key={cluster.id}
+            lat={cluster.lat}
+            lng={cluster.lng}
+            sentiment={cluster.sentiment}
+            title={
+              cluster.count > 1
+                ? `${cluster.count} stories in this area`
+                : cluster.pins[0].title
+            }
+            url={cluster.count === 1 ? cluster.pins[0].url : ""}
+            count={cluster.count}
+          />
+        ))}
+
+        {arcs.map((arc) => (
+          <ArcLine
+            key={arc.key}
+            startLat={arc.startLat}
+            startLng={arc.startLng}
+            endLat={arc.endLat}
+            endLng={arc.endLng}
+          />
+        ))}
       </group>
-
-      <SentimentOverlay />
-      <CountryOverlay />
-
-      {pins.map((cluster) => (
-        <NewsPin
-          key={cluster.id}
-          lat={cluster.lat}
-          lng={cluster.lng}
-          sentiment={cluster.sentiment}
-          title={
-            cluster.count > 1
-              ? `${cluster.count} stories in this area`
-              : cluster.pins[0].title
-          }
-          url={cluster.count === 1 ? cluster.pins[0].url : ""}
-          count={cluster.count}
-        />
-      ))}
-
-      {arcs.map((arc) => (
-        <ArcLine
-          key={arc.key}
-          startLat={arc.startLat}
-          startLng={arc.startLng}
-          endLat={arc.endLat}
-          endLng={arc.endLng}
-        />
-      ))}
 
       <CameraController />
 
@@ -172,7 +188,7 @@ export function GlobeScene() {
         gl={{
           antialias: true,
           toneMapping: THREE.ACESFilmicToneMapping,
-          toneMappingExposure: 1.2,
+          toneMappingExposure: 1.5,
         }}
         style={{ background: "#030712" }}
       >
