@@ -15,6 +15,7 @@ build/
 .idea/
 *.swp
 *.swo
+.claude/
 
 # OS files
 .DS_Store
@@ -29,3 +30,5 @@ npm-debug.log*
 
 # Docker
 docker-compose.override.yml
+
+
