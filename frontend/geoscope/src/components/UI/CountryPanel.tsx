@@ -36,7 +36,7 @@ export function CountryPanel() {
           animate={{ x: 0 }}
           exit={{ x: "100%" }}
           transition={{ type: "spring", damping: 25, stiffness: 200 }}
-          className="fixed top-0 right-0 h-full w-full max-w-md z-30 flex flex-col bg-slate-900/95 backdrop-blur-md border-l border-slate-800"
+          className="fixed top-0 right-0 h-full w-full max-w-md z-50 flex flex-col bg-slate-900/95 backdrop-blur-md border-l border-slate-800"
         >
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-slate-800">

@@ -1,4 +1,4 @@
-import { useRef, useState, useMemo } from "react";
+import { useRef, useState, useMemo, memo } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { latLngToVector3 } from "../../utils/geoHelpers";
@@ -14,7 +14,7 @@ interface NewsPinProps {
   count?: number;
 }
 
-export function NewsPin({
+function NewsPinComponent({
   lat,
   lng,
   sentiment,
@@ -74,19 +74,19 @@ export function NewsPin({
     >
       {/* Pin stem */}
       <mesh position={[0, 0.03, 0]}>
-        <cylinderGeometry args={[0.003, 0.003, 0.06, 8]} />
+        <cylinderGeometry args={[0.003, 0.003, 0.06, 6]} />
         <meshBasicMaterial color={color} />
       </mesh>
 
       {/* Pin head */}
       <mesh position={[0, 0.07, 0]}>
-        <sphereGeometry args={[0.015, 12, 12]} />
+        <sphereGeometry args={[0.015, 8, 8]} />
         <meshBasicMaterial color={color} />
       </mesh>
 
       {/* Glow */}
       <mesh position={[0, 0.07, 0]}>
-        <sphereGeometry args={[0.025, 12, 12]} />
+        <sphereGeometry args={[0.025, 8, 8]} />
         <meshBasicMaterial
           color={color}
           transparent
@@ -127,3 +127,5 @@ export function NewsPin({
     </group>
   );
 }
+
+export const NewsPin = memo(NewsPinComponent);

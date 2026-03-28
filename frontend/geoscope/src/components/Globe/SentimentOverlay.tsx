@@ -1,11 +1,11 @@
-import { useMemo } from "react";
+import { useMemo, memo } from "react";
 import * as THREE from "three";
 import { useGlobeStore } from "../../store/globeStore";
 import { getCountryByCode } from "../../utils/countryData";
 import { latLngToVector3 } from "../../utils/geoHelpers";
 import { sentimentToHex, type Sentiment } from "../../utils/sentimentColors";
 
-function SentimentDot({
+const SentimentDot = memo(function SentimentDot({
   lat,
   lng,
   sentiment,
@@ -38,7 +38,7 @@ function SentimentDot({
       onPointerOver={() => { document.body.style.cursor = "pointer"; }}
       onPointerOut={() => { document.body.style.cursor = "default"; }}
     >
-      <circleGeometry args={[0.06, 24]} />
+      <circleGeometry args={[0.06, 16]} />
       <meshBasicMaterial
         color={color}
         transparent
@@ -49,7 +49,7 @@ function SentimentDot({
       />
     </mesh>
   );
-}
+});
 
 export function SentimentOverlay() {
   const globalSentiment = useGlobeStore((s) => s.globalSentiment);

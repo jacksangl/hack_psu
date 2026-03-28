@@ -1,4 +1,4 @@
-import { useRef, useMemo } from "react";
+import { useRef, useMemo, memo } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { greatCirclePoints } from "../../utils/geoHelpers";
@@ -10,12 +10,12 @@ interface ArcLineProps {
   endLng: number;
 }
 
-export function ArcLine({ startLat, startLng, endLat, endLng }: ArcLineProps) {
+function ArcLineComponent({ startLat, startLng, endLat, endLng }: ArcLineProps) {
   const lineRef = useRef<THREE.Line>(null);
   const progressRef = useRef(0);
 
   const { geometry, totalPoints } = useMemo(() => {
-    const points = greatCirclePoints(startLat, startLng, endLat, endLng, 64);
+    const points = greatCirclePoints(startLat, startLng, endLat, endLng, 24);
     const geo = new THREE.BufferGeometry().setFromPoints(points);
     return { geometry: geo, totalPoints: points.length };
   }, [startLat, startLng, endLat, endLng]);
@@ -39,3 +39,5 @@ export function ArcLine({ startLat, startLng, endLat, endLng }: ArcLineProps) {
     </line>
   );
 }
+
+export const ArcLine = memo(ArcLineComponent);

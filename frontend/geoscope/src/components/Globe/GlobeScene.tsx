@@ -1,5 +1,5 @@
 import { Suspense, useCallback, useMemo, useRef } from "react";
-import { Canvas, useFrame } from "@react-three/fiber";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
 import { EarthMesh } from "./EarthMesh";
@@ -23,6 +23,8 @@ function GlobeContent() {
   const isCameraAnimating = useGlobeStore((s) => s.isCameraAnimating);
 
   const globeGroupRef = useRef<THREE.Group>(null);
+  const earthMeshRef = useRef<THREE.Group>(null);
+  const { camera } = useThree();
 
   useFrame(() => {
     if (!selectedCountry && globeGroupRef.current) {
@@ -31,12 +33,22 @@ function GlobeContent() {
   });
 
   const handleGlobeClick = useCallback(
-    (event: THREE.Event & { point?: THREE.Vector3 }) => {
+    (event: THREE.Event & { point?: THREE.Vector3; ndc?: THREE.Vector2 }) => {
       const threeEvent = event as unknown as {
         point: THREE.Vector3;
+        ndc: THREE.Vector2;
         stopPropagation: () => void;
       };
-      if (!threeEvent.point) return;
+      if (!threeEvent.point || !threeEvent.ndc) return;
+
+      // Use raycaster to verify the click hit the globe mesh
+      const raycaster = new THREE.Raycaster();
+      raycaster.setFromCamera(threeEvent.ndc, camera);
+
+      // Check if ray intersects with the earth mesh group
+      if (!earthMeshRef.current) return;
+      const intersects = raycaster.intersectObject(earthMeshRef.current, true);
+      if (intersects.length === 0) return; // Click did not hit the globe
 
       // Un-rotate the click point to match fixed lat/lng world space
       let point = threeEvent.point.clone();
@@ -68,7 +80,7 @@ function GlobeContent() {
         clearSelectedCountry();
       }
     },
-    [selectCountry, clearSelectedCountry]
+    [selectCountry, clearSelectedCountry, camera]
   );
 
   const pins = useMemo(() => {
@@ -139,7 +151,7 @@ function GlobeContent() {
         ref={globeGroupRef}
         onClick={handleGlobeClick as unknown as React.MouseEventHandler}
       >
-        <EarthMesh />
+        <EarthMesh ref={earthMeshRef} />
         <CountryBorders />
         <SentimentOverlay />
         <CountryOverlay />
@@ -176,7 +188,8 @@ function GlobeContent() {
       {!isCameraAnimating && (
         <OrbitControls
           enableDamping
-          dampingFactor={0.05}
+          dampingFactor={0.15}
+          autoRotate={false}
           minPolarAngle={0.3}
           maxPolarAngle={Math.PI - 0.3}
           minDistance={2.5}
@@ -190,14 +203,18 @@ function GlobeContent() {
 
 export function GlobeScene() {
   return (
-    <div className="absolute inset-0">
+    <div className="absolute inset-0 z-10">
       <Canvas
         camera={{ position: [0, 0, 6], fov: 45 }}
         gl={{
-          antialias: true,
+          antialias: false,
           toneMapping: THREE.ACESFilmicToneMapping,
           toneMappingExposure: 1.5,
+          powerPreference: "high-performance",
+          precision: "lowp",
         }}
+        frameloop="demand"
+        dpr={Math.min(window.devicePixelRatio, 1.5)}
         style={{ background: "#030712" }}
       >
         <Suspense fallback={null}>

@@ -1,15 +1,16 @@
 import { useTexture } from "@react-three/drei";
 import * as THREE from "three";
+import { forwardRef } from "react";
 
-export function EarthMesh() {
+export const EarthMesh = forwardRef<THREE.Group>((_, ref) => {
   const texture = useTexture(
     "https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg"
   );
 
   return (
-    <group>
+    <group ref={ref}>
       <mesh>
-        <sphereGeometry args={[2, 64, 64]} />
+        <sphereGeometry args={[2, 48, 48]} />
         <meshStandardMaterial
           map={texture}
           metalness={0.1}
@@ -19,7 +20,7 @@ export function EarthMesh() {
 
       {/* Atmosphere glow */}
       <mesh>
-        <sphereGeometry args={[2.03, 64, 64]} />
+        <sphereGeometry args={[2.03, 48, 48]} />
         <meshBasicMaterial
           color="#14b8a6"
           transparent
@@ -31,4 +32,6 @@ export function EarthMesh() {
       </mesh>
     </group>
   );
-}
+});
+
+EarthMesh.displayName = "EarthMesh";

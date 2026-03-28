@@ -20,12 +20,12 @@ function subdivideSegment(
   const p2 = latLngToVector3(lat2, lng2, radius);
   const angle = p1.angleTo(p2);
 
-  // ~2 degrees — short enough to look smooth, only subdivide longer spans
-  if (angle < 0.035) {
+  // ~3 degrees — reduces segment count for better performance during drag
+  if (angle < 0.052) {
     return [p1, p2];
   }
 
-  const steps = Math.ceil(angle / 0.035);
+  const steps = Math.ceil(angle / 0.052);
   const points: THREE.Vector3[] = [];
   for (let i = 0; i <= steps; i++) {
     const t = i / steps;
