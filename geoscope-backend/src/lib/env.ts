@@ -5,7 +5,7 @@ export const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]),
   REDIS_URL: z.string().url(),
   NEWS_API_KEY: z.string().min(1),
-  OPENAI_API_KEY: z.string().min(1),
+  GEMINI_API_KEY: z.string().min(1),
 });
 
 export type Env = z.infer<typeof envSchema>;

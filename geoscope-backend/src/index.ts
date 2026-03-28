@@ -6,7 +6,7 @@ import { logger } from "./lib/logger";
 import { createCacheStore } from "./lib/redis";
 import { GdeltProvider } from "./providers/gdeltProvider";
 import { NewsApiProvider } from "./providers/newsApiProvider";
-import { OpenAIBriefProvider } from "./providers/openaiBriefProvider";
+import { GeminiBriefProvider } from "./providers/geminiBriefProvider";
 import { BriefService } from "./services/briefService";
 import { CompareService } from "./services/compareService";
 import { NewsService } from "./services/newsService";
@@ -27,7 +27,7 @@ const start = async (): Promise<void> => {
   });
 
   const briefService = new BriefService({
-    aiProvider: new OpenAIBriefProvider({ apiKey: env.OPENAI_API_KEY }),
+    aiProvider: new GeminiBriefProvider({ apiKey: env.GEMINI_API_KEY }),
     cacheStore,
     newsService,
   });
