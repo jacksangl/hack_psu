@@ -41,6 +41,7 @@ export const articleSchema = z.object({
   longitude: z.number().nullable(),
   sentiment: articleSentimentSchema,
   topics: z.array(z.string()),
+  relatedCountries: z.array(countryCodeSchema),
   locationName: z.string().nullable(),
 });
 

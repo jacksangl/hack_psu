@@ -50,7 +50,9 @@ function NewsPinComponent({
   });
 
   const handleClick = () => {
-    if (count && count > 1) return;
+    setHovered(false);
+    document.body.style.cursor = "default";
+    if (!url) return;
     window.open(url, "_blank", "noopener,noreferrer");
   };
 

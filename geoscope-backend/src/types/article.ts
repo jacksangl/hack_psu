@@ -14,6 +14,7 @@ export interface Article {
   longitude: number | null;
   sentiment: ArticleSentiment;
   topics: string[];
+  relatedCountries: string[];
   locationName: string | null;
 }
 

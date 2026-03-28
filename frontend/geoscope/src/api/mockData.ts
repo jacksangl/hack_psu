@@ -112,7 +112,7 @@ const NEWS_DATA: Record<string, NewsResponse> = {
         lng: -60.02,
         sentiment: "positive",
         relatedCountries: ["DE", "NO"],
-        category: "environment",
+        category: "climate",
       },
       {
         id: "br-2",

@@ -1,5 +1,5 @@
-import { Suspense, useCallback, useMemo, useRef } from "react";
-import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { Suspense, useCallback, useEffect, useMemo, useRef } from "react";
+import { Canvas, useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
 import { EarthMesh } from "./EarthMesh";
@@ -14,15 +14,19 @@ import { getCountryByCode, COUNTRIES } from "../../utils/countryData";
 import { latLngToVector3 } from "../../utils/geoHelpers";
 import { clusterPins, type PinData } from "../../utils/clusterPins";
 import { CameraController } from "./CameraController";
+import { fetchCountryNews } from "../../api/client";
 
 
 const _raycaster = new THREE.Raycaster();
+const CONNECT_DOTS_COUNTRY_LIMIT = 10;
 
 function GlobeContent() {
   const selectedCountry = useGlobeStore((s) => s.selectedCountry);
   const selectCountry = useGlobeStore((s) => s.selectCountry);
   const clearSelectedCountry = useGlobeStore((s) => s.clearSelectedCountry);
   const countryNews = useGlobeStore((s) => s.countryNews);
+  const globalSentiment = useGlobeStore((s) => s.globalSentiment);
+  const setCountryNews = useGlobeStore((s) => s.setCountryNews);
   const connectDotsMode = useGlobeStore((s) => s.connectDotsMode);
   const isCameraAnimating = useGlobeStore((s) => s.isCameraAnimating);
 
@@ -37,16 +41,11 @@ function GlobeContent() {
   });
 
   const handleGlobeClick = useCallback(
-    (event: THREE.Event & { point?: THREE.Vector3; ndc?: THREE.Vector2 }) => {
-      const threeEvent = event as unknown as {
-        point: THREE.Vector3;
-        ndc: THREE.Vector2;
-        stopPropagation: () => void;
-      };
-      if (!threeEvent.point || !threeEvent.ndc) return;
+    (event: ThreeEvent<MouseEvent>) => {
+      if (!event.point) return;
 
       // Use raycaster to verify the click hit the globe mesh
-      _raycaster.setFromCamera(threeEvent.ndc, camera);
+      _raycaster.setFromCamera(event.pointer, camera);
 
       // Check if ray intersects with the earth mesh group
       if (!earthMeshRef.current) return;
@@ -54,7 +53,7 @@ function GlobeContent() {
       if (intersects.length === 0) return; // Click did not hit the globe
 
       // Un-rotate the click point to match fixed lat/lng world space
-      let point = threeEvent.point.clone();
+      let point = event.point.clone();
       if (globeGroupRef.current) {
         const rotY = globeGroupRef.current.rotation.y;
         point.applyEuler(new THREE.Euler(0, -rotY, 0));
@@ -78,12 +77,16 @@ function GlobeContent() {
       }
 
       if (closestCode) {
-        selectCountry(closestCode);
+        if (closestCode === selectedCountry) {
+          clearSelectedCountry();
+        } else {
+          selectCountry(closestCode);
+        }
       } else {
         clearSelectedCountry();
       }
     },
-    [selectCountry, clearSelectedCountry, camera]
+    [selectedCountry, selectCountry, clearSelectedCountry, camera]
   );
 
   const pins = useMemo(() => {
@@ -105,14 +108,53 @@ function GlobeContent() {
     return clusterPins(allPins);
   }, [selectedCountry, countryNews]);
 
+  const connectDotsCountryCodes = useMemo(() => {
+    const prioritized = Object.values(globalSentiment)
+      .sort(
+        (left, right) =>
+          Math.abs(right.sentimentScore) - Math.abs(left.sentimentScore) ||
+          left.countryCode.localeCompare(right.countryCode)
+      )
+      .map((entry) => entry.countryCode);
+
+    if (selectedCountry) {
+      prioritized.unshift(selectedCountry);
+    }
+
+    return Array.from(new Set(prioritized)).slice(0, CONNECT_DOTS_COUNTRY_LIMIT);
+  }, [globalSentiment, selectedCountry]);
+
+  useEffect(() => {
+    if (!connectDotsMode) {
+      return;
+    }
+
+    const uncachedCodes = connectDotsCountryCodes.filter(
+      (countryCode) => !countryNews[countryCode]
+    );
+
+    if (uncachedCodes.length === 0) {
+      return;
+    }
+
+    let cancelled = false;
+
+    Promise.allSettled(
+      uncachedCodes.map(async (countryCode) => {
+        const news = await fetchCountryNews(countryCode);
+        if (!cancelled) {
+          setCountryNews(countryCode, news);
+        }
+      })
+    ).catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, [connectDotsMode, connectDotsCountryCodes, countryNews, setCountryNews]);
+
   const arcs = useMemo(() => {
-    if (!connectDotsMode || !selectedCountry) return [];
-    const newsData = countryNews[selectedCountry];
-    if (!newsData) return [];
-
-    const sourceCountry = getCountryByCode(selectedCountry);
-    if (!sourceCountry) return [];
-
+    if (!connectDotsMode) return [];
     const arcSet = new Set<string>();
     const arcList: {
       key: string;
@@ -120,29 +162,46 @@ function GlobeContent() {
       startLng: number;
       endLat: number;
       endLng: number;
+      color: string;
+      opacity: number;
     }[] = [];
 
-    for (const article of newsData.articles) {
-      for (const relCode of article.relatedCountries) {
-        const arcKey = [selectedCountry, relCode].sort().join("-");
-        if (arcSet.has(arcKey)) continue;
-        arcSet.add(arcKey);
+    for (const sourceCode of connectDotsCountryCodes) {
+      const newsData = countryNews[sourceCode];
+      const sourceCountry = getCountryByCode(sourceCode);
 
-        const target = getCountryByCode(relCode);
-        if (!target) continue;
+      if (!newsData || !sourceCountry) {
+        continue;
+      }
 
-        arcList.push({
-          key: arcKey,
-          startLat: sourceCountry.lat,
-          startLng: sourceCountry.lng,
-          endLat: target.lat,
-          endLng: target.lng,
-        });
+      for (const article of newsData.articles) {
+        for (const relCode of article.relatedCountries) {
+          const target = getCountryByCode(relCode);
+          if (!target || relCode === sourceCode) continue;
+
+          const arcKey = [sourceCode, relCode].sort().join("-");
+          if (arcSet.has(arcKey)) continue;
+          arcSet.add(arcKey);
+
+          const isSelectedArc =
+            selectedCountry != null &&
+            (sourceCode === selectedCountry || relCode === selectedCountry);
+
+          arcList.push({
+            key: arcKey,
+            startLat: sourceCountry.lat,
+            startLng: sourceCountry.lng,
+            endLat: target.lat,
+            endLng: target.lng,
+            color: isSelectedArc ? "#F59E0B" : "#14B8A6",
+            opacity: isSelectedArc ? 0.8 : 0.28,
+          });
+        }
       }
     }
 
     return arcList;
-  }, [connectDotsMode, selectedCountry, countryNews]);
+  }, [connectDotsMode, connectDotsCountryCodes, selectedCountry, countryNews]);
 
   return (
     <>
@@ -152,7 +211,7 @@ function GlobeContent() {
 
       <group
         ref={globeGroupRef}
-        onClick={handleGlobeClick as unknown as React.MouseEventHandler}
+        onClick={handleGlobeClick}
       >
         <EarthMesh ref={earthMeshRef} />
         <CountryBorders />
@@ -171,7 +230,7 @@ function GlobeContent() {
                 ? `${cluster.count} stories in this area`
                 : cluster.pins[0].title
             }
-            url={cluster.count === 1 ? cluster.pins[0].url : ""}
+            url={cluster.pins[0].url}
             count={cluster.count}
           />
         ))}
@@ -183,6 +242,8 @@ function GlobeContent() {
             startLng={arc.startLng}
             endLat={arc.endLat}
             endLng={arc.endLng}
+            color={arc.color}
+            opacity={arc.opacity}
           />
         ))}
       </group>

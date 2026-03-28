@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import type { ProviderNewsArticle } from "../providers/newsProvider";
 import type { Article } from "../types/article";
 import { getCountryCentroid } from "./countryCodeMap";
+import { extractRelatedCountries, extractTopicsFromContent } from "./articleSignals";
 import { computeArticleSentiment } from "./sentiment";
 
 interface NormalizeArticlesOptions {
@@ -10,19 +11,6 @@ interface NormalizeArticlesOptions {
   countryName: string;
   requestedTopic?: string;
 }
-
-const topicMatchers: Array<{ topic: string; pattern: RegExp }> = [
-  { topic: "Politics", pattern: /\b(election|government|minister|parliament|president|policy)\b/i },
-  { topic: "Conflict", pattern: /\b(attack|conflict|war|military|strike|violence)\b/i },
-  { topic: "Economy", pattern: /\b(economy|inflation|market|trade|budget|growth)\b/i },
-  { topic: "Business", pattern: /\b(company|business|industry|investment|merger|startup)\b/i },
-  { topic: "Climate", pattern: /\b(climate|weather|storm|flood|wildfire|drought)\b/i },
-  { topic: "Health", pattern: /\b(health|hospital|disease|virus|outbreak|medicine)\b/i },
-  { topic: "Technology", pattern: /\b(technology|ai|software|cyber|data|chip)\b/i },
-  { topic: "Sports", pattern: /\b(sport|football|soccer|basketball|cricket|tournament)\b/i },
-  { topic: "Culture", pattern: /\b(culture|festival|film|music|art|museum)\b/i },
-  { topic: "Diplomacy", pattern: /\b(diplomacy|summit|treaty|embassy|sanction|ceasefire)\b/i },
-];
 
 const buildArticleId = (article: ProviderNewsArticle): string =>
   createHash("sha1")
@@ -44,27 +32,12 @@ const ensureIsoTimestamp = (value: string): string => {
 };
 
 export const extractTopics = (article: ProviderNewsArticle, requestedTopic?: string): string[] => {
-  const topics = new Set<string>();
-
-  if (requestedTopic) {
-    topics.add(requestedTopic.trim());
-  }
-
-  for (const topic of article.topics ?? []) {
-    if (topic.trim()) {
-      topics.add(topic.trim());
-    }
-  }
-
-  const haystack = [article.title, article.description].filter(Boolean).join(" ");
-
-  for (const matcher of topicMatchers) {
-    if (matcher.pattern.test(haystack)) {
-      topics.add(matcher.topic);
-    }
-  }
-
-  return Array.from(topics).slice(0, 5);
+  return extractTopicsFromContent({
+    title: article.title,
+    description: article.description,
+    explicitTopics: article.topics,
+    requestedTopic,
+  });
 };
 
 export const normalizeArticle = (
@@ -88,6 +61,11 @@ export const normalizeArticle = (
     longitude: article.longitude ?? centroid?.longitude ?? null,
     sentiment,
     topics: extractTopics(article, options.requestedTopic),
+    relatedCountries: extractRelatedCountries({
+      countryCode: options.countryCode,
+      title: article.title,
+      description: article.description,
+    }),
     locationName: sanitizeText(article.locationName) ?? centroid?.locationName ?? options.countryName,
   };
 };

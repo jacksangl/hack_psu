@@ -4,7 +4,7 @@ import { CategoryFilter } from "../UI/CategoryFilter";
 
 export function TopBar() {
   return (
-    <header className="fixed top-0 left-0 right-0 z-20 flex flex-col border-b border-slate-800 bg-slate-900/80 backdrop-blur-sm">
+    <header className="fixed top-0 left-0 right-0 z-20 border-b border-slate-800 bg-slate-900/80 backdrop-blur-sm">
       <div className="flex items-center justify-between px-4 py-3">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
@@ -28,11 +28,10 @@ export function TopBar() {
 
         <div className="flex items-center gap-3">
           <SearchBar />
+          <CategoryFilter />
           <ModeToggle />
         </div>
       </div>
-
-      <CategoryFilter />
     </header>
   );
 }

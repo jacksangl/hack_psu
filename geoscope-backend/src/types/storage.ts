@@ -17,6 +17,7 @@ export interface StoredCountryArticle {
     label: SentimentLabel;
   };
   topics: string[];
+  relatedCountries: string[];
   locationName: string | null;
 }
 

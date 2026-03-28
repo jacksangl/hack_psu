@@ -4,6 +4,7 @@ import type { Article } from "../types/article";
 import type { SentimentLabel } from "../types/sentiment";
 import type { CountrySnapshotRecord, StoredCountryArticle } from "../types/storage";
 import type { Database } from "../lib/db";
+import { extractRelatedCountries, extractTopicsFromContent } from "../utils/articleSignals";
 
 interface SnapshotRow {
   article_count: number;
@@ -80,7 +81,15 @@ const mapArticleRow = (row: ArticleRow): StoredCountryArticle => ({
   },
   source: row.source,
   title: row.title,
-  topics: [],
+  topics: extractTopicsFromContent({
+    title: row.title,
+    description: row.description,
+  }),
+  relatedCountries: extractRelatedCountries({
+    countryCode: row.country_code,
+    title: row.title,
+    description: row.description,
+  }),
   url: row.url,
 });
 
