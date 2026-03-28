@@ -43,7 +43,7 @@ function SentimentDot({
         color={color}
         transparent
         opacity={0.35}
-        side={THREE.DoubleSide}
+        side={THREE.FrontSide}
         depthWrite={false}
         blending={THREE.AdditiveBlending}
       />
