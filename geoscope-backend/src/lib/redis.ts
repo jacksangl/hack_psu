@@ -30,7 +30,13 @@ export class RedisCacheStore implements CacheStore {
   private readonly client: RedisClientType;
 
   constructor(options: RedisCacheStoreOptions) {
-    this.client = createClient({ url: options.url });
+    this.client = createClient({
+      url: options.url,
+      socket: {
+        connectTimeout: 1_000,
+        reconnectStrategy: false,
+      },
+    });
 
     this.client.on("error", (error) => {
       logger.error("redis client error", {
