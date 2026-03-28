@@ -13,6 +13,8 @@ export interface ProviderNewsArticle {
   toneScore?: number | null;
 }
 
+export type NewsProviderQueryMode = "top-headlines" | "everything";
+
 export interface FetchCountryNewsParams {
   countryCode: string;
   countryName: string;
@@ -20,6 +22,7 @@ export interface FetchCountryNewsParams {
   from?: string;
   to?: string;
   topic?: string;
+  queryMode?: NewsProviderQueryMode;
 }
 
 export interface NewsProvider {

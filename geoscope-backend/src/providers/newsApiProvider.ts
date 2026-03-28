@@ -1,7 +1,12 @@
 import { z } from "zod";
 
 import { AppError } from "../lib/errors";
-import type { FetchCountryNewsParams, NewsProvider, ProviderNewsArticle } from "./newsProvider";
+import type {
+  FetchCountryNewsParams,
+  NewsProvider,
+  NewsProviderQueryMode,
+  ProviderNewsArticle,
+} from "./newsProvider";
 
 const newsApiArticleSchema = z.object({
   title: z.string(),
@@ -65,11 +70,11 @@ export class NewsApiProvider implements NewsProvider {
   }
 
   private buildUrl(params: FetchCountryNewsParams): URL {
-    const useEverything = Boolean(params.from || params.to || params.topic);
-    const endpoint = useEverything ? "everything" : "top-headlines";
+    const queryMode = this.resolveQueryMode(params);
+    const endpoint = queryMode === "everything" ? "everything" : "top-headlines";
     const url = new URL(`${this.baseUrl}/${endpoint}`);
 
-    if (useEverything) {
+    if (queryMode === "everything") {
       const queryParts = [`"${params.countryName}"`];
 
       if (params.topic) {
@@ -78,7 +83,6 @@ export class NewsApiProvider implements NewsProvider {
 
       url.searchParams.set("q", queryParts.join(" AND "));
       url.searchParams.set("searchIn", "title,description");
-      url.searchParams.set("language", "en");
       url.searchParams.set("sortBy", "publishedAt");
     } else {
       url.searchParams.set("country", params.countryCode.toLowerCase());
@@ -95,5 +99,13 @@ export class NewsApiProvider implements NewsProvider {
     }
 
     return url;
+  }
+
+  private resolveQueryMode(params: FetchCountryNewsParams): NewsProviderQueryMode {
+    if (params.queryMode) {
+      return params.queryMode;
+    }
+
+    return params.from || params.to || params.topic ? "everything" : "top-headlines";
   }
 }

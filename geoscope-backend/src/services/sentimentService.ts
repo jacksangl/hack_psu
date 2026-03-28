@@ -7,7 +7,7 @@ import { averageSentimentScore, labelFromScore } from "../utils/sentiment";
 import { NewsService } from "./newsService";
 
 const SENTIMENT_CACHE_TTL_SECONDS = 30 * 60;
-const TRACKED_COUNTRIES = ["US", "CA", "BR", "GB", "FR", "DE", "ZA", "NG", "IN", "JP", "AU", "UA"];
+const PHASE_ONE_TRACKED_COUNTRIES = ["US", "CA", "BR", "GB", "FR", "DE", "ZA", "NG", "IN", "JP", "AU", "UA"];
 
 interface SentimentServiceOptions {
   cacheStore: CacheStore;
@@ -34,8 +34,13 @@ export class SentimentService {
       };
     }
 
+    logger.info("global sentiment phase one fetch started", {
+      countryCount: PHASE_ONE_TRACKED_COUNTRIES.length,
+      scope: "tracked-countries",
+    });
+
     const results = await Promise.allSettled(
-      TRACKED_COUNTRIES.map((countryCode) =>
+      PHASE_ONE_TRACKED_COUNTRIES.map((countryCode) =>
         this.newsService.getCountryNews({
           countryCode,
           limit: 10,
@@ -47,8 +52,9 @@ export class SentimentService {
 
     for (const result of results) {
       if (result.status === "rejected") {
-        logger.warn("tracked country sentiment fetch failed", {
+        logger.warn("global sentiment phase one country fetch failed", {
           message: result.reason instanceof Error ? result.reason.message : "unknown tracked country error",
+          scope: "tracked-countries",
         });
         continue;
       }
@@ -71,7 +77,11 @@ export class SentimentService {
     }
 
     if (countries.length === 0) {
-      throw new AppError(502, "PROVIDER_ERROR", "Unable to compute global sentiment from tracked countries.");
+      throw new AppError(
+        502,
+        "PROVIDER_ERROR",
+        "Unable to compute global sentiment from the current tracked-country phase.",
+      );
     }
 
     const response = {
