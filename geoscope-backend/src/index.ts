@@ -6,7 +6,7 @@ import { parseEnv } from "./lib/env";
 import { logger } from "./lib/logger";
 import { runMigrations } from "./lib/migrations";
 import { createCacheStore } from "./lib/redis";
-import { GdeltProvider } from "./providers/gdeltProvider";
+import { RssScraperProvider } from "./providers/rssScraperProvider";
 import { GeminiBriefProvider } from "./providers/geminiBriefProvider";
 import { NewsRepository } from "./repositories/newsRepository";
 import { BriefService } from "./services/briefService";
@@ -49,7 +49,7 @@ const start = async (): Promise<void> => {
   });
 
   const ingestionService = new IngestionService({
-    provider: new GdeltProvider(),
+    provider: new RssScraperProvider(),
     repository: newsRepository,
   });
 
@@ -67,6 +67,20 @@ const start = async (): Promise<void> => {
     logger.info("server started", {
       environment: env.NODE_ENV,
       port: env.PORT,
+    });
+
+    // Auto-ingest news on startup so the globe is populated
+    logger.info("starting auto-ingestion on startup");
+    ingestionService.ingest().then((result) => {
+      logger.info("auto-ingestion completed", {
+        countriesAttempted: result.countriesAttempted,
+        countriesSucceeded: result.countriesSucceeded,
+        status: result.status,
+      });
+    }).catch((error) => {
+      logger.warn("auto-ingestion failed", {
+        error: error instanceof Error ? error.message : "unknown",
+      });
     });
   });
 

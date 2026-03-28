@@ -10,8 +10,8 @@ import { dedupeProviderArticles } from "../utils/articleDeduper";
 const INGEST_FETCH_LIMIT = 10;
 const INGEST_STORE_LIMIT = 5;
 const SNAPSHOT_STALE_AFTER_MS = 24 * 60 * 60 * 1000;
-const INGEST_CONCURRENCY = parseInt(process.env.INGEST_CONCURRENCY ?? "1", 10);
-const INGEST_BATCH_DELAY_MS = parseInt(process.env.INGEST_BATCH_DELAY_MS ?? "1500", 10);
+const INGEST_CONCURRENCY = parseInt(process.env.INGEST_CONCURRENCY ?? "5", 10);
+const INGEST_BATCH_DELAY_MS = parseInt(process.env.INGEST_BATCH_DELAY_MS ?? "500", 10);
 
 const sleep = (ms: number): Promise<void> =>
   new Promise((resolve) => {
