@@ -1,5 +1,7 @@
 import type { Sentiment } from "../utils/sentimentColors";
 
+export type NewsCategory = "politics" | "economics" | "environment" | "technology" | "disaster" | "health";
+
 export interface Article {
   id: string;
   title: string;
@@ -10,6 +12,7 @@ export interface Article {
   lng: number;
   sentiment: Sentiment;
   relatedCountries: string[];
+  category: NewsCategory;
 }
 
 export interface NewsResponse {
@@ -55,6 +58,7 @@ const NEWS_DATA: Record<string, NewsResponse> = {
         lng: -77.04,
         sentiment: "positive",
         relatedCountries: ["GB", "DE", "JP"],
+        category: "economics",
       },
       {
         id: "us-2",
@@ -66,6 +70,7 @@ const NEWS_DATA: Record<string, NewsResponse> = {
         lng: -95.37,
         sentiment: "crisis",
         relatedCountries: [],
+        category: "disaster",
       },
       {
         id: "us-3",
@@ -77,6 +82,7 @@ const NEWS_DATA: Record<string, NewsResponse> = {
         lng: -122.08,
         sentiment: "positive",
         relatedCountries: ["CN", "KR", "IN"],
+        category: "technology",
       },
       {
         id: "us-4",
@@ -88,6 +94,7 @@ const NEWS_DATA: Record<string, NewsResponse> = {
         lng: -77.01,
         sentiment: "neutral",
         relatedCountries: ["MX"],
+        category: "politics",
       },
     ],
   },
@@ -105,6 +112,7 @@ const NEWS_DATA: Record<string, NewsResponse> = {
         lng: -60.02,
         sentiment: "positive",
         relatedCountries: ["DE", "NO"],
+        category: "environment",
       },
       {
         id: "br-2",
@@ -116,6 +124,7 @@ const NEWS_DATA: Record<string, NewsResponse> = {
         lng: -34.87,
         sentiment: "positive",
         relatedCountries: ["CN"],
+        category: "politics",
       },
       {
         id: "br-3",
@@ -127,6 +136,7 @@ const NEWS_DATA: Record<string, NewsResponse> = {
         lng: -46.63,
         sentiment: "negative",
         relatedCountries: ["US", "AR"],
+        category: "economics",
       },
       {
         id: "br-4",
@@ -138,6 +148,7 @@ const NEWS_DATA: Record<string, NewsResponse> = {
         lng: -51.18,
         sentiment: "negative",
         relatedCountries: ["CN", "US"],
+        category: "disaster",
       },
     ],
   },
@@ -155,6 +166,7 @@ const NEWS_DATA: Record<string, NewsResponse> = {
         lng: 77.21,
         sentiment: "positive",
         relatedCountries: ["US", "JP"],
+        category: "economics",
       },
       {
         id: "in-2",
@@ -166,6 +178,7 @@ const NEWS_DATA: Record<string, NewsResponse> = {
         lng: 80.23,
         sentiment: "positive",
         relatedCountries: [],
+        category: "technology",
       },
       {
         id: "in-3",
@@ -177,6 +190,7 @@ const NEWS_DATA: Record<string, NewsResponse> = {
         lng: 70.91,
         sentiment: "negative",
         relatedCountries: [],
+        category: "disaster",
       },
       {
         id: "in-4",
@@ -188,6 +202,7 @@ const NEWS_DATA: Record<string, NewsResponse> = {
         lng: 77.09,
         sentiment: "positive",
         relatedCountries: ["DE", "FR", "IT"],
+        category: "politics",
       },
     ],
   },
@@ -205,6 +220,7 @@ const NEWS_DATA: Record<string, NewsResponse> = {
         lng: 8.68,
         sentiment: "positive",
         relatedCountries: ["CN", "US"],
+        category: "economics",
       },
       {
         id: "de-2",
@@ -216,6 +232,7 @@ const NEWS_DATA: Record<string, NewsResponse> = {
         lng: 13.41,
         sentiment: "negative",
         relatedCountries: ["UA", "PL"],
+        category: "politics",
       },
       {
         id: "de-3",
@@ -227,6 +244,7 @@ const NEWS_DATA: Record<string, NewsResponse> = {
         lng: 10.79,
         sentiment: "positive",
         relatedCountries: ["FR", "ES"],
+        category: "technology",
       },
     ],
   },
@@ -244,6 +262,7 @@ const NEWS_DATA: Record<string, NewsResponse> = {
         lng: 116.4,
         sentiment: "neutral",
         relatedCountries: ["US", "JP"],
+        category: "economics",
       },
       {
         id: "cn-2",
@@ -255,6 +274,7 @@ const NEWS_DATA: Record<string, NewsResponse> = {
         lng: 112.0,
         sentiment: "crisis",
         relatedCountries: ["PH", "US"],
+        category: "politics",
       },
       {
         id: "cn-3",
@@ -266,6 +286,7 @@ const NEWS_DATA: Record<string, NewsResponse> = {
         lng: 114.06,
         sentiment: "positive",
         relatedCountries: ["US", "DE"],
+        category: "technology",
       },
       {
         id: "cn-4",
@@ -277,6 +298,7 @@ const NEWS_DATA: Record<string, NewsResponse> = {
         lng: 113.26,
         sentiment: "crisis",
         relatedCountries: [],
+        category: "disaster",
       },
     ],
   },
@@ -294,6 +316,7 @@ const NEWS_DATA: Record<string, NewsResponse> = {
         lng: 3.38,
         sentiment: "positive",
         relatedCountries: ["US", "GB"],
+        category: "technology",
       },
       {
         id: "ng-2",
@@ -305,6 +328,7 @@ const NEWS_DATA: Record<string, NewsResponse> = {
         lng: 7.49,
         sentiment: "neutral",
         relatedCountries: [],
+        category: "economics",
       },
       {
         id: "ng-3",
@@ -316,6 +340,7 @@ const NEWS_DATA: Record<string, NewsResponse> = {
         lng: 13.16,
         sentiment: "crisis",
         relatedCountries: ["TD"],
+        category: "politics",
       },
       {
         id: "ng-4",
@@ -327,6 +352,7 @@ const NEWS_DATA: Record<string, NewsResponse> = {
         lng: 3.41,
         sentiment: "positive",
         relatedCountries: ["CN"],
+        category: "economics",
       },
     ],
   },
@@ -344,6 +370,7 @@ const NEWS_DATA: Record<string, NewsResponse> = {
         lng: 30.52,
         sentiment: "neutral",
         relatedCountries: ["RU", "US", "DE", "FR"],
+        category: "politics",
       },
       {
         id: "ua-2",
@@ -355,6 +382,7 @@ const NEWS_DATA: Record<string, NewsResponse> = {
         lng: 30.52,
         sentiment: "positive",
         relatedCountries: ["US", "DE", "PL"],
+        category: "politics",
       },
       {
         id: "ua-3",
@@ -366,6 +394,7 @@ const NEWS_DATA: Record<string, NewsResponse> = {
         lng: 36.23,
         sentiment: "crisis",
         relatedCountries: ["RU"],
+        category: "disaster",
       },
       {
         id: "ua-4",
@@ -377,6 +406,7 @@ const NEWS_DATA: Record<string, NewsResponse> = {
         lng: 30.52,
         sentiment: "positive",
         relatedCountries: ["PL", "DE"],
+        category: "technology",
       },
       {
         id: "ua-5",
@@ -388,6 +418,7 @@ const NEWS_DATA: Record<string, NewsResponse> = {
         lng: 30.73,
         sentiment: "positive",
         relatedCountries: [],
+        category: "disaster",
       },
     ],
   },
@@ -405,6 +436,7 @@ const NEWS_DATA: Record<string, NewsResponse> = {
         lng: 149.13,
         sentiment: "positive",
         relatedCountries: ["JP", "US"],
+        category: "economics",
       },
       {
         id: "au-2",
@@ -416,6 +448,7 @@ const NEWS_DATA: Record<string, NewsResponse> = {
         lng: 147.7,
         sentiment: "crisis",
         relatedCountries: [],
+        category: "environment",
       },
       {
         id: "au-3",
@@ -427,6 +460,7 @@ const NEWS_DATA: Record<string, NewsResponse> = {
         lng: 151.21,
         sentiment: "neutral",
         relatedCountries: [],
+        category: "economics",
       },
     ],
   },

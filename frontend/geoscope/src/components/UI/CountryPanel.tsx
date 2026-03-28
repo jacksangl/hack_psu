@@ -9,6 +9,7 @@ import { ArticleCard } from "./ArticleCard";
 
 export function CountryPanel() {
   const selectedCountry = useGlobeStore((s) => s.selectedCountry);
+  const selectedCategory = useGlobeStore((s) => s.selectedCategory);
   const clearSelectedCountry = useGlobeStore((s) => s.clearSelectedCountry);
   const isLoading = useGlobeStore((s) => s.isLoading);
   const error = useGlobeStore((s) => s.error);
@@ -18,6 +19,11 @@ export function CountryPanel() {
   const countryInfo = selectedCountry
     ? getCountryByCode(selectedCountry)
     : null;
+
+  // Filter articles by category
+  const filteredArticles = selectedCategory && news?.articles
+    ? news.articles.filter((article) => article.category === selectedCategory)
+    : news?.articles || [];
 
   const handleReadBrief = () => {
     if (isSpeaking) {
@@ -171,13 +177,18 @@ export function CountryPanel() {
             )}
 
             {/* Articles */}
-            {news && news.articles.length > 0 && !isLoading && (
+            {news && filteredArticles.length > 0 && !isLoading && (
               <div>
                 <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">
                   Latest Articles
+                  {selectedCategory && (
+                    <span className="ml-2 text-accent-teal">
+                      ({filteredArticles.length})
+                    </span>
+                  )}
                 </h3>
                 <div className="space-y-2">
-                  {news.articles.map((article) => (
+                  {filteredArticles.map((article) => (
                     <ArticleCard
                       key={article.id}
                       title={article.title}
@@ -188,6 +199,24 @@ export function CountryPanel() {
                     />
                   ))}
                 </div>
+              </div>
+            )}
+
+            {selectedCategory && news && filteredArticles.length === 0 && !isLoading && (
+              <div className="flex flex-col items-center justify-center py-8 text-slate-500 rounded-lg bg-slate-800/30 border border-slate-700/50">
+                <svg
+                  width="40"
+                  height="40"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  className="mb-2 opacity-50"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M12 8v4M12 16h.01" />
+                </svg>
+                <p className="text-sm">No articles in this category</p>
               </div>
             )}
 
