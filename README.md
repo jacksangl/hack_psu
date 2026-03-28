@@ -15,10 +15,10 @@ An interactive 3D globe that visualizes global news sentiment in real time. Clic
 
 ```bash
 cd geoscope-backend
-cp .env.example .env
+
 ```
 
-Edit `.env` and fill in your API keys:
+ADD `.env` and fill in your API keys:
 
 ```
 PORT=3000
