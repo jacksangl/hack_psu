@@ -8,11 +8,13 @@ import { SentimentOverlay } from "./SentimentOverlay";
 import { CountryBorders } from "./CountryBorders";
 import { NewsPin } from "./NewsPin";
 import { ArcLine } from "./ArcLine";
+import { NewsHeatmap } from "./NewsHeatmap";
 import { useGlobeStore } from "../../store/globeStore";
 import { getCountryByCode, COUNTRIES } from "../../utils/countryData";
 import { latLngToVector3 } from "../../utils/geoHelpers";
 import { clusterPins, type PinData } from "../../utils/clusterPins";
 import { CameraController } from "./CameraController";
+
 
 function GlobeContent() {
   const selectedCountry = useGlobeStore((s) => s.selectedCountry);
@@ -153,6 +155,7 @@ function GlobeContent() {
       >
         <EarthMesh ref={earthMeshRef} />
         <CountryBorders />
+        <NewsHeatmap />
         <SentimentOverlay />
         <CountryOverlay />
 

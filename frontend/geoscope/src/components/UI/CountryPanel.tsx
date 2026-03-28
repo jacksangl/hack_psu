@@ -76,7 +76,11 @@ export function CountryPanel() {
           </div>
 
           {/* Content */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          <div className="flex-1 overflow-y-auto p-4 space-y-4 scroll-smooth" style={{
+            WebkitOverflowScrolling: "touch",
+            scrollBehavior: "auto",
+            overscrollBehavior: "contain",
+          }}>
             {isLoading && (
               <div className="flex items-center justify-center py-12">
                 <div className="w-6 h-6 border-2 border-accent-teal border-t-transparent rounded-full animate-spin" />
