@@ -16,6 +16,7 @@ interface GlobeState {
   countryBriefs: Record<string, BriefResponse>;
   isLoading: boolean;
   error: string | null;
+  isCameraAnimating: boolean;
 
   selectCountry: (code: string) => void;
   clearSelectedCountry: () => void;
@@ -27,6 +28,7 @@ interface GlobeState {
   setCountryBrief: (code: string, data: BriefResponse) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
+  setCameraAnimating: (animating: boolean) => void;
 }
 
 export const useGlobeStore = create<GlobeState>((set) => ({
@@ -39,6 +41,7 @@ export const useGlobeStore = create<GlobeState>((set) => ({
   countryBriefs: {},
   isLoading: false,
   error: null,
+  isCameraAnimating: false,
 
   selectCountry: (code) => set({ selectedCountry: code }),
   clearSelectedCountry: () => set({ selectedCountry: null }),
@@ -63,4 +66,5 @@ export const useGlobeStore = create<GlobeState>((set) => ({
     })),
   setLoading: (loading) => set({ isLoading: loading }),
   setError: (error) => set({ error }),
+  setCameraAnimating: (animating) => set({ isCameraAnimating: animating }),
 }));

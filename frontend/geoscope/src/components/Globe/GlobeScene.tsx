@@ -16,8 +16,10 @@ import { CameraController } from "./CameraController";
 function GlobeContent() {
   const selectedCountry = useGlobeStore((s) => s.selectedCountry);
   const selectCountry = useGlobeStore((s) => s.selectCountry);
+  const clearSelectedCountry = useGlobeStore((s) => s.clearSelectedCountry);
   const countryNews = useGlobeStore((s) => s.countryNews);
   const connectDotsMode = useGlobeStore((s) => s.connectDotsMode);
+  const isCameraAnimating = useGlobeStore((s) => s.isCameraAnimating);
 
   const globeGroupRef = useRef<THREE.Group>(null);
 
@@ -61,9 +63,11 @@ function GlobeContent() {
 
       if (closestCode) {
         selectCountry(closestCode);
+      } else {
+        clearSelectedCountry();
       }
     },
-    [selectCountry]
+    [selectCountry, clearSelectedCountry]
   );
 
   const pins = useMemo(() => {
@@ -165,17 +169,19 @@ function GlobeContent() {
         ))}
       </group>
 
-      <CameraController />
+      <CameraController globeGroupRef={globeGroupRef} />
 
-      <OrbitControls
-        enableDamping
-        dampingFactor={0.05}
-        minPolarAngle={0.3}
-        maxPolarAngle={Math.PI - 0.3}
-        minDistance={2.5}
-        maxDistance={10}
-        enablePan={false}
-      />
+      {!isCameraAnimating && (
+        <OrbitControls
+          enableDamping
+          dampingFactor={0.05}
+          minPolarAngle={0.3}
+          maxPolarAngle={Math.PI - 0.3}
+          minDistance={2.5}
+          maxDistance={10}
+          enablePan={false}
+        />
+      )}
     </>
   );
 }

@@ -9,11 +9,14 @@ function SentimentDot({
   lat,
   lng,
   sentiment,
+  countryCode,
 }: {
   lat: number;
   lng: number;
   sentiment: Sentiment;
+  countryCode: string;
 }) {
+  const selectCountry = useGlobeStore((s) => s.selectCountry);
   const position = useMemo(() => latLngToVector3(lat, lng, 2.005), [lat, lng]);
   const quaternion = useMemo(() => {
     const normal = position.clone().normalize();
@@ -25,7 +28,16 @@ function SentimentDot({
   const color = sentimentToHex(sentiment);
 
   return (
-    <mesh position={position} quaternion={quaternion}>
+    <mesh
+      position={position}
+      quaternion={quaternion}
+      onClick={(e) => {
+        e.stopPropagation();
+        selectCountry(countryCode);
+      }}
+      onPointerOver={() => { document.body.style.cursor = "pointer"; }}
+      onPointerOut={() => { document.body.style.cursor = "default"; }}
+    >
       <circleGeometry args={[0.06, 24]} />
       <meshBasicMaterial
         color={color}
@@ -68,6 +80,7 @@ export function SentimentOverlay() {
       {dots.map((dot) => (
         <SentimentDot
           key={dot.key}
+          countryCode={dot.key}
           lat={dot.lat}
           lng={dot.lng}
           sentiment={dot.sentiment}
