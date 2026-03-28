@@ -47,7 +47,7 @@ export function CountryOverlay() {
         color="#14b8a6"
         transparent
         opacity={0.6}
-        side={THREE.DoubleSide}
+        side={THREE.FrontSide}
         depthWrite={false}
       />
     </mesh>

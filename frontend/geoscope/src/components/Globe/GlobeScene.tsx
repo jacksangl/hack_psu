@@ -5,6 +5,7 @@ import * as THREE from "three";
 import { EarthMesh } from "./EarthMesh";
 import { CountryOverlay } from "./CountryOverlay";
 import { SentimentOverlay } from "./SentimentOverlay";
+import { CountryBorders } from "./CountryBorders";
 import { NewsPin } from "./NewsPin";
 import { ArcLine } from "./ArcLine";
 import { useGlobeStore } from "../../store/globeStore";
@@ -139,6 +140,7 @@ function GlobeContent() {
         onClick={handleGlobeClick as unknown as React.MouseEventHandler}
       >
         <EarthMesh />
+        <CountryBorders />
         <SentimentOverlay />
         <CountryOverlay />
 
