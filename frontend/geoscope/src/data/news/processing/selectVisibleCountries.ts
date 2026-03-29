@@ -35,7 +35,7 @@ export function selectVisibleCountries(
       sourceCount: entry.sourceCount,
       hasNews: entry.hasNews,
     }))
-    .filter((entry) => entry.hasNews && entry.articleCount > 0)
+    .filter((entry) => entry.hasNews)
     .sort(sortVisibleCountries);
 
   const selectedEntry = selectedCountry ? ranked.find((entry) => entry.countryCode === selectedCountry) : null;

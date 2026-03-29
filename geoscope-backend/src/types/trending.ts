@@ -7,6 +7,7 @@ export interface TrendingArticle {
   description: string | null;
   imageUrl: string | null;
   category: string;
+  sourceCount: number;
 }
 
 export interface TrendingResponseData {

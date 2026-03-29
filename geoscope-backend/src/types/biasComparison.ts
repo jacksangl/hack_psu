@@ -14,6 +14,7 @@ export interface BiasComparisonData {
   keyTopics: string[];
   consensus: string[];
   disagreements: string[];
+  singleSource: boolean;
 }
 
 export interface BiasComparisonResponse extends BiasComparisonData {

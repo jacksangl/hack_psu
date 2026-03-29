@@ -28,6 +28,41 @@ function primaryCategory(topics: string[]): string {
   return topics[0];
 }
 
+function significantWords(text: string): Set<string> {
+  return new Set(
+    (text.toLowerCase().match(/[\p{L}\p{N}][\p{L}\p{N}-]*/gu) ?? [])
+      .map((t) => t.replace(/^-+|-+$/g, ""))
+      .filter((t) => t.length >= 4),
+  );
+}
+
+function headlineSimilarity(a: string, b: string): number {
+  const wordsA = significantWords(a);
+  const wordsB = significantWords(b);
+  if (wordsA.size === 0 || wordsB.size === 0) return 0;
+  let overlap = 0;
+  for (const w of wordsA) {
+    if (wordsB.has(w)) overlap++;
+  }
+  return overlap / Math.min(wordsA.size, wordsB.size);
+}
+
+/** Group articles by story similarity, counting distinct sources per group. */
+function countSourcesPerArticle(articles: TrendingArticle[]): void {
+  const SIMILARITY_THRESHOLD = 0.45;
+  // For each article, count how many distinct sources cover a similar headline
+  for (let i = 0; i < articles.length; i++) {
+    const sources = new Set<string>([articles[i].source.toLowerCase()]);
+    for (let j = 0; j < articles.length; j++) {
+      if (i === j) continue;
+      if (headlineSimilarity(articles[i].title, articles[j].title) >= SIMILARITY_THRESHOLD) {
+        sources.add(articles[j].source.toLowerCase());
+      }
+    }
+    articles[i].sourceCount = sources.size;
+  }
+}
+
 export class TrendingService {
   private readonly cacheStore: CacheStore;
 
@@ -88,6 +123,7 @@ export class TrendingService {
         description,
         imageUrl: item.imageUrl,
         category: primaryCategory(topics),
+        sourceCount: 1,
       };
     });
 
@@ -97,6 +133,9 @@ export class TrendingService {
         (a) => a.category.toLowerCase() === category.toLowerCase()
       );
     }
+
+    // Count how many distinct sources cover each story
+    countSourcesPerArticle(articles);
 
     articles = articles.slice(0, MAX_ARTICLES);
 

@@ -295,6 +295,7 @@ function buildFallbackComparison(
     keyTopics,
     consensus,
     disagreements,
+    singleSource: otherCoverages.length === 0,
   };
 }
 
@@ -456,6 +457,7 @@ export class BiasComparisonService {
             aiResult.disagreements.length > 0
               ? aiResult.disagreements
               : fallbackDraft.disagreements,
+          singleSource: false,
         };
 
         await this.cacheStore.setJson(cacheKey, response, this.config.cacheTtlSeconds);
@@ -476,6 +478,7 @@ export class BiasComparisonService {
       keyTopics: fallbackDraft.keyTopics,
       consensus: fallbackDraft.consensus,
       disagreements: fallbackDraft.disagreements,
+      singleSource: otherCoverages.length === 0,
     };
 
     await this.cacheStore.setJson(cacheKey, fallback, this.config.cacheTtlSeconds);

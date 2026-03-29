@@ -150,6 +150,7 @@ export const COUNTRIES: CountryInfo[] = [
   { code: "DZ", name: "Algeria", lat: 28.03, lng: 1.66, flag: "🇩🇿" },
   { code: "MA", name: "Morocco", lat: 31.79, lng: -7.09, flag: "🇲🇦" },
   { code: "SD", name: "Sudan", lat: 12.86, lng: 30.22, flag: "🇸🇩" },
+  { code: "SS", name: "South Sudan", lat: 6.88, lng: 31.31, flag: "🇸🇸" },
 
   // Africa - West
   { code: "NG", name: "Nigeria", lat: 9.08, lng: 8.68, flag: "🇳🇬" },

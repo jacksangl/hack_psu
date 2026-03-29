@@ -3,7 +3,6 @@ import { useGlobeStore } from "../../../store/globeStore";
 import { useCountryData } from "../../../data/news/hooks/useCountryData";
 import { getCountryByCode } from "../../../utils/countryData";
 import { useVoiceBrief } from "../../hooks/useVoiceBrief";
-import { SentimentBadge } from "./SentimentBadge";
 import { TagCloud } from "./TagCloud";
 import { ArticleCard } from "./ArticleCard";
 import { SourcesLoader } from "./SourcesLoader";
@@ -92,12 +91,7 @@ export function CountryPanel() {
 
             {brief && !isLoading && (
               <>
-                {/* Sentiment badge */}
                 <div className="flex items-center gap-2">
-                  <SentimentBadge
-                    sentiment={brief.sentiment}
-                    score={brief.sentimentScore}
-                  />
                   <span className="text-xs text-slate-500">
                     {brief.articleCount} articles analyzed
                   </span>

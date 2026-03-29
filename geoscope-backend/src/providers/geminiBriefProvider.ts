@@ -67,6 +67,8 @@ export class GeminiBriefProvider implements AiProvider {
 
 Write the summary as a synthesis, not a headline list. Lead with the dominant storyline, explain what changed most recently, and include cross-border implications if the article set supports it. Avoid filler.
 
+IMPORTANT: Only use information from the provided articles. Do not invent or assume facts, names, dates, or events not present in the briefing packet. Every claim in the summary must be traceable to at least one article below.
+
 Briefing packet:
 ${JSON.stringify(briefingPacket)}
 
@@ -121,6 +123,8 @@ Return ONLY valid JSON, no markdown fences.`;
 - "disagreements": an array of 2-4 bullet points describing where sources disagree or frame the story differently — different emphasis, omitted details, contrasting tones
 
 Only include sources that are clearly covering the same specific event, not just the same general topic.
+
+IMPORTANT: Only use information from the headlines and descriptions provided below. Do not invent or assume facts, quotes, or details not present in the source material. Every claim must be traceable to at least one source listed here.
 
 Original article (${params.originalSource}): "${params.originalTitle}"
 

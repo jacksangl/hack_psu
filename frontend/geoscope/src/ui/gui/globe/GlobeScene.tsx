@@ -8,15 +8,12 @@ import { CountryBorders } from "./CountryBorders";
 import { CameraController } from "./CameraController";
 import { NewsGlobeLayers } from "../../news/globe/NewsGlobeLayers";
 import { useGlobeStore } from "../../../store/globeStore";
-import { COUNTRIES } from "../../../utils/countryData";
-import { latLngToVector3 } from "../../../utils/geoHelpers";
 
 
 const _raycaster = new THREE.Raycaster();
 
 function GlobeContent() {
   const selectedCountry = useGlobeStore((s) => s.selectedCountry);
-  const selectCountry = useGlobeStore((s) => s.selectCountry);
   const clearSelectedCountry = useGlobeStore((s) => s.clearSelectedCountry);
   const isCameraAnimating = useGlobeStore((s) => s.isCameraAnimating);
   const clearHoveredItem = useGlobeStore((s) => s.clearHoveredItem);
@@ -52,51 +49,20 @@ function GlobeContent() {
       // Use raycaster to verify the click hit the globe mesh
       _raycaster.setFromCamera(event.pointer, camera);
 
-      // Check if ray intersects with the earth mesh group
       if (!earthMeshRef.current) return;
       const intersects = _raycaster.intersectObject(earthMeshRef.current, true);
-      if (intersects.length === 0) return; // Click did not hit the globe
+      if (intersects.length === 0) return;
 
-      // Prevent farther intersections behind the globe from also receiving the click.
       event.stopPropagation();
 
-      // Un-rotate the click point to match fixed lat/lng world space
-      let point = event.point.clone();
-      if (globeGroupRef.current) {
-        const rotY = globeGroupRef.current.rotation.y;
-        point.applyEuler(new THREE.Euler(0, -rotY, 0));
-      }
-      point.normalize();
-
-      let closestCode: string | null = null;
-      let closestDist = Infinity;
-
-      for (const country of COUNTRIES) {
-        const countryPos = latLngToVector3(
-          country.lat,
-          country.lng,
-          1
-        ).normalize();
-        const dist = point.distanceTo(countryPos);
-        if (dist < closestDist && dist < 0.12) {
-          closestDist = dist;
-          closestCode = country.code;
-        }
-      }
-
-      if (closestCode) {
-        if (closestCode === selectedCountry) {
-          clearSelectedCountry();
-        } else {
-          selectCountry(closestCode);
-        }
-      } else {
+      // Clicking the globe surface deselects the current country
+      if (selectedCountry) {
         clearSelectedCountry();
       }
 
       clearHoveredItem();
     },
-    [selectedCountry, selectCountry, clearSelectedCountry, clearHoveredItem, camera]
+    [selectedCountry, clearSelectedCountry, clearHoveredItem, camera]
   );
 
   return (

@@ -35,7 +35,7 @@ const COUNTRY_REGION: Record<string, string> = {
   MW: "africa", ML: "africa", MR: "africa", MU: "africa", MA: "africa",
   MZ: "africa", NA: "africa", NE: "africa", NG: "africa", RW: "africa",
   ST: "africa", SN: "africa", SC: "africa", SL: "africa", SO: "africa",
-  ZA: "africa", SD: "africa", TZ: "africa", TG: "africa", TN: "africa",
+  ZA: "africa", SD: "africa", SS: "africa", TZ: "africa", TG: "africa", TN: "africa",
   UG: "africa", ZM: "africa", ZW: "africa",
   // Asia
   AF: "asia", BD: "asia", BT: "asia", BN: "asia", KH: "asia",
