@@ -1,6 +1,7 @@
 import type { CacheStore } from "../lib/redis";
 import type { CountryComparisonData, CountryComparisonResponse } from "../types/comparison";
 import { cacheKeys } from "../utils/cacheKeys";
+import { dedup } from "../utils/inflight";
 import { averageSentimentScore } from "../utils/sentiment";
 import { BriefService } from "./briefService";
 import { NewsService } from "./newsService";
@@ -37,6 +38,15 @@ export class CompareService {
     const leftCode = countryA.toUpperCase();
     const rightCode = countryB.toUpperCase();
     const cacheKey = cacheKeys.compare(leftCode, rightCode);
+
+    return dedup(cacheKey, () => this.computeCompare(leftCode, rightCode, cacheKey));
+  }
+
+  private async computeCompare(
+    leftCode: string,
+    rightCode: string,
+    cacheKey: string,
+  ): Promise<CountryComparisonResponse> {
     const cached = await this.cacheStore.getJson<CountryComparisonData>(cacheKey);
 
     if (cached) {

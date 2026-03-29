@@ -6,6 +6,8 @@ import {
   buildFallbackBrief,
 } from "./briefSupport";
 
+const GEMINI_TIMEOUT_MS = 8_000;
+
 interface GeminiBriefProviderOptions {
   apiKey: string;
   model?: string;
@@ -19,6 +21,14 @@ export class GeminiBriefProvider implements AiProvider {
   constructor(options: GeminiBriefProviderOptions) {
     this.apiKey = options.apiKey;
     this.model = options.model ?? "gemini-2.0-flash";
+  }
+
+  private fetchWithTimeout(url: string, init: RequestInit): Promise<Response> {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), GEMINI_TIMEOUT_MS);
+    return fetch(url, { ...init, signal: controller.signal }).finally(() =>
+      clearTimeout(timeout),
+    );
   }
 
   async generateBrief(params: GenerateBriefParams): Promise<BriefDraft> {
@@ -44,7 +54,7 @@ Return ONLY valid JSON, no markdown fences.`;
     try {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent?key=${this.apiKey}`;
 
-      const response = await fetch(url, {
+      const response = await this.fetchWithTimeout(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -95,7 +105,7 @@ Return ONLY valid JSON, no markdown fences.`;
     try {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent?key=${this.apiKey}`;
 
-      const response = await fetch(url, {
+      const response = await this.fetchWithTimeout(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

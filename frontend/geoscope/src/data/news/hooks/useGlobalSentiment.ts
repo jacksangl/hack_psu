@@ -8,7 +8,6 @@ const POLL_INTERVAL_MS = 30_000; // re-fetch every 30s while ingestion is runnin
 export function useGlobalSentiment() {
   const setGlobalSentiment = useGlobeStore((s) => s.setGlobalSentiment);
   const globalSentiment = useGlobeStore((s) => s.globalSentiment);
-  const activeDate = useGlobeStore((s) => s.activeDate);
   const hasData = useRef(false);
 
   useEffect(() => {
@@ -41,7 +40,7 @@ export function useGlobalSentiment() {
       cancelled = true;
       if (timer) clearInterval(timer);
     };
-  }, [activeDate, setGlobalSentiment]);
+  }, [setGlobalSentiment]);
 
   return globalSentiment;
 }

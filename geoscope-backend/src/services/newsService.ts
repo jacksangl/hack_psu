@@ -4,6 +4,7 @@ import { NewsRepository } from "../repositories/newsRepository";
 import type { NewsResponse, NewsResponseData } from "../types/article";
 import { cacheKeys } from "../utils/cacheKeys";
 import { getCountryName, normalizeCountryCode } from "../utils/countryCodeMap";
+import { dedup } from "../utils/inflight";
 
 const NEWS_CACHE_TTL_SECONDS = 15 * 60;
 
@@ -44,6 +45,16 @@ export class NewsService {
       topic: params.topic,
     };
     const cacheKey = cacheKeys.news(countryCode, query);
+
+    return dedup(cacheKey, () => this.computeNews(countryCode, countryName, params.limit, cacheKey));
+  }
+
+  private async computeNews(
+    countryCode: string,
+    countryName: string,
+    limit: number,
+    cacheKey: string,
+  ): Promise<NewsResponse> {
     const cached = await this.cacheStore.getJson<NewsResponseData>(cacheKey);
 
     if (cached) {
@@ -53,7 +64,7 @@ export class NewsService {
       };
     }
 
-    const storedArticles = await this.repository.getCountryArticles(countryCode, params.limit);
+    const storedArticles = await this.repository.getCountryArticles(countryCode, limit);
     const response: NewsResponseData = {
       countryCode,
       countryName,

@@ -3,6 +3,7 @@ import type { CacheStore } from "../lib/redis";
 import { NewsRepository } from "../repositories/newsRepository";
 import type { GlobalSentimentResponse } from "../types/sentiment";
 import { cacheKeys } from "../utils/cacheKeys";
+import { dedup } from "../utils/inflight";
 
 const SENTIMENT_CACHE_TTL_SECONDS = 30 * 60;
 
@@ -22,6 +23,11 @@ export class SentimentService {
 
   async getGlobalSentiment(): Promise<GlobalSentimentResponse> {
     const cacheKey = cacheKeys.sentimentGlobal();
+
+    return dedup(cacheKey, () => this.computeGlobalSentiment(cacheKey));
+  }
+
+  private async computeGlobalSentiment(cacheKey: string): Promise<GlobalSentimentResponse> {
     const cached = await this.cacheStore.getJson<Omit<GlobalSentimentResponse, "cached">>(cacheKey);
 
     if (cached) {

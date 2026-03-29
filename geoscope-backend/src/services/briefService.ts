@@ -2,6 +2,7 @@ import type { AiProvider } from "../providers/aiProvider";
 import type { CountryBriefData, CountryBriefResponse } from "../types/brief";
 import { cacheKeys } from "../utils/cacheKeys";
 import type { CacheStore } from "../lib/redis";
+import { dedup } from "../utils/inflight";
 import { NewsService } from "./newsService";
 
 const BRIEF_CACHE_TTL_SECONDS = 15 * 60;
@@ -27,6 +28,11 @@ export class BriefService {
   async getCountryBrief(countryCode: string): Promise<CountryBriefResponse> {
     const normalizedCountryCode = countryCode.toUpperCase();
     const cacheKey = cacheKeys.brief(normalizedCountryCode);
+
+    return dedup(cacheKey, () => this.computeBrief(normalizedCountryCode, cacheKey));
+  }
+
+  private async computeBrief(normalizedCountryCode: string, cacheKey: string): Promise<CountryBriefResponse> {
     const cached = await this.cacheStore.getJson<CountryBriefData>(cacheKey);
 
     if (cached) {

@@ -5,6 +5,7 @@ import { getGlobalFeedItems, fetchRss, cleanHtml, type RssItem } from "../provid
 import type { TrendingArticle, TrendingResponse, TrendingResponseData } from "../types/trending";
 import { extractTopicsFromContent } from "../utils/articleSignals";
 import { cacheKeys } from "../utils/cacheKeys";
+import { dedup } from "../utils/inflight";
 
 const TRENDING_CACHE_TTL_SECONDS = 10 * 60;
 const MAX_ARTICLES = 30;
@@ -36,13 +37,17 @@ export class TrendingService {
 
   async getTrending(category?: string): Promise<TrendingResponse> {
     const cacheKey = cacheKeys.trending(category);
+
+    return dedup(cacheKey, () => this.computeTrending(category, cacheKey));
+  }
+
+  private async computeTrending(category: string | undefined, cacheKey: string): Promise<TrendingResponse> {
     const cached = await this.cacheStore.getJson<TrendingResponseData>(cacheKey);
 
     if (cached) {
       return { ...cached, cached: true };
     }
 
-    // Fetch US-focused + global feeds in parallel
     const [usItems, globalItems] = await Promise.all([
       fetchRss(US_NEWS_RSS),
       getGlobalFeedItems(),

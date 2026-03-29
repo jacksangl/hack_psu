@@ -6,6 +6,7 @@ import { fetchRss, cleanHtml, type RssItem } from "../providers/rssScraperProvid
 import type { AiProvider } from "../providers/aiProvider";
 import type { BiasComparisonData, BiasComparisonResponse, SourceCoverage } from "../types/biasComparison";
 import { cacheKeys } from "../utils/cacheKeys";
+import { dedup } from "../utils/inflight";
 
 const BIAS_CACHE_TTL_SECONDS = 30 * 60;
 const MAX_OTHER_SOURCES = 5;
@@ -73,13 +74,20 @@ export class BiasComparisonService {
   }): Promise<BiasComparisonResponse> {
     const hash = urlHash(params.url);
     const cacheKey = cacheKeys.biasComparison(hash);
+
+    return dedup(cacheKey, () => this.computeComparison(params, cacheKey));
+  }
+
+  private async computeComparison(
+    params: { title: string; source: string; url: string },
+    cacheKey: string,
+  ): Promise<BiasComparisonResponse> {
     const cached = await this.cacheStore.getJson<BiasComparisonData>(cacheKey);
 
     if (cached) {
       return { ...cached, cached: true };
     }
 
-    // Search for related articles from other sources
     const keywords = extractKeywords(params.title);
     logger.info("bias comparison search", { keywords, originalSource: params.source });
 
