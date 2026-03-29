@@ -13,7 +13,7 @@ const SECTIONS = [
   },
   {
     title: "Globe View",
-    body: "The globe shows a news-volume heatmap — brighter colors mean more coverage. Click a country flag to see its latest headlines and AI-generated brief. Use the search bar to find any country.",
+    body: "The globe shows a news-volume heatmap — brighter colors mean more coverage. Click any country on the globe to see its latest headlines and AI-generated brief. Use the search bar to find any country.",
   },
   {
     title: "Category Filters",

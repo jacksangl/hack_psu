@@ -1,16 +1,16 @@
 import { Suspense, useCallback, useEffect, useRef } from "react";
-import { Canvas, useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
+import { Canvas, useFrame, type ThreeEvent } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
 import { EarthMesh } from "./EarthMesh";
 import { CountryOverlay } from "./CountryOverlay";
 import { CountryBorders } from "./CountryBorders";
+import { CountryInteractionLayer } from "./CountryInteractionLayer";
 import { CameraController } from "./CameraController";
 import { NewsGlobeLayers } from "../../news/globe/NewsGlobeLayers";
 import { useGlobeStore } from "../../../store/globeStore";
 
-
-const _raycaster = new THREE.Raycaster();
+const GLOBE_OCEAN_CLICK_RADIUS = 2.004;
 
 function GlobeContent() {
   const selectedCountry = useGlobeStore((s) => s.selectedCountry);
@@ -20,9 +20,8 @@ function GlobeContent() {
   const setIsInteracting = useGlobeStore((s) => s.setIsInteracting);
 
   const globeGroupRef = useRef<THREE.Group>(null);
-  const earthMeshRef = useRef<THREE.Group>(null);
   const orbitingRef = useRef(false);
-  const { camera } = useThree();
+  const suppressOceanClickRef = useRef(false);
 
   useEffect(() => {
     if (isCameraAnimating) {
@@ -41,29 +40,30 @@ function GlobeContent() {
     }
   });
 
-  const handleGlobeClick = useCallback(
+  const handleOceanClick = useCallback(
     (event: ThreeEvent<MouseEvent>) => {
-      if (!event.point) return;
       if (event.delta > 4) return;
 
-      // Use raycaster to verify the click hit the globe mesh
-      _raycaster.setFromCamera(event.pointer, camera);
-
-      if (!earthMeshRef.current) return;
-      const intersects = _raycaster.intersectObject(earthMeshRef.current, true);
-      if (intersects.length === 0) return;
-
       event.stopPropagation();
+
+      if (suppressOceanClickRef.current) {
+        suppressOceanClickRef.current = false;
+        return;
+      }
+
+      clearHoveredItem();
 
       // Clicking the globe surface deselects the current country
       if (selectedCountry) {
         clearSelectedCountry();
       }
-
-      clearHoveredItem();
     },
-    [selectedCountry, clearSelectedCountry, clearHoveredItem, camera]
+    [selectedCountry, clearSelectedCountry, clearHoveredItem]
   );
+
+  const notifyCountryInteraction = useCallback(() => {
+    suppressOceanClickRef.current = true;
+  }, []);
 
   return (
     <>
@@ -73,10 +73,21 @@ function GlobeContent() {
 
       <group
         ref={globeGroupRef}
-        onClick={handleGlobeClick}
       >
-        <EarthMesh ref={earthMeshRef} />
+        <EarthMesh />
+        <mesh
+          onClick={handleOceanClick}
+        >
+          <sphereGeometry args={[GLOBE_OCEAN_CLICK_RADIUS, 64, 64]} />
+          <meshBasicMaterial
+            transparent
+            opacity={0}
+            side={THREE.FrontSide}
+            depthWrite={false}
+          />
+        </mesh>
         <CountryBorders />
+        <CountryInteractionLayer notifyCountryInteraction={notifyCountryInteraction} />
         <CountryOverlay />
         <NewsGlobeLayers />
       </group>

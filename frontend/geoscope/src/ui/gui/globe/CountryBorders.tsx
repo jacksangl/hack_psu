@@ -3,10 +3,12 @@ import * as THREE from "three";
 import * as topojson from "topojson-client";
 import type { Topology } from "topojson-specification";
 import { latLngToVector3 } from "../../../utils/geoHelpers";
+import { NEWS_GLOBE_CONFIG } from "../../news/globe/globeConfig";
 
 // 110m is much smaller than 50m (~150 KB vs ~1 MB) — big perf win
-const BORDERS_URL = "https://unpkg.com/world-atlas@2/countries-110m.json";
-const GLOBE_RADIUS = 2.003;
+const BORDERS_URL = NEWS_GLOBE_CONFIG.heatmap.topoUrl;
+const GLOBE_RADIUS = 2.004;
+const BORDER_GLOW_SCALE = 1.00055;
 
 // Subdivide long segments so lines hug the sphere surface
 function subdivideSegment(
@@ -21,11 +23,11 @@ function subdivideSegment(
   const angle = p1.angleTo(p2);
 
   // ~5 degrees — fewer subdivisions for better performance
-  if (angle < 0.087) {
+  if (angle < 0.11) {
     return [p1, p2];
   }
 
-  const steps = Math.ceil(angle / 0.087);
+  const steps = Math.ceil(angle / 0.11);
   const points: THREE.Vector3[] = [];
   for (let i = 0; i <= steps; i++) {
     const t = i / steps;
@@ -71,13 +73,27 @@ export function CountryBorders() {
   if (!geometry) return null;
 
   return (
-    <lineSegments geometry={geometry}>
-      <lineBasicMaterial
-        color="#94a3b8"
-        transparent
-        opacity={0.3}
-        depthWrite={false}
-      />
-    </lineSegments>
+    <group>
+      <lineSegments
+        geometry={geometry}
+        scale={[BORDER_GLOW_SCALE, BORDER_GLOW_SCALE, BORDER_GLOW_SCALE]}
+      >
+        <lineBasicMaterial
+          color="#14b8a6"
+          transparent
+          opacity={0.16}
+          depthWrite={false}
+        />
+      </lineSegments>
+
+      <lineSegments geometry={geometry}>
+        <lineBasicMaterial
+          color="#c3f5ff"
+          transparent
+          opacity={0.28}
+          depthWrite={false}
+        />
+      </lineSegments>
+    </group>
   );
 }

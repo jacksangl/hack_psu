@@ -1,13 +1,19 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 
 export function useVoiceBrief() {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
 
+  const cancelSpeech = useCallback(() => {
+    if (!("speechSynthesis" in window)) return;
+    window.speechSynthesis.cancel();
+    utteranceRef.current = null;
+  }, []);
+
   const speak = useCallback((text: string) => {
     if (!("speechSynthesis" in window)) return;
 
-    window.speechSynthesis.cancel();
+    cancelSpeech();
 
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.rate = 0.95;
@@ -26,12 +32,18 @@ export function useVoiceBrief() {
 
     utteranceRef.current = utterance;
     window.speechSynthesis.speak(utterance);
-  }, []);
+  }, [cancelSpeech]);
 
   const stop = useCallback(() => {
-    window.speechSynthesis.cancel();
+    cancelSpeech();
     setIsSpeaking(false);
-  }, []);
+  }, [cancelSpeech]);
+
+  useEffect(() => {
+    return () => {
+      cancelSpeech();
+    };
+  }, [cancelSpeech]);
 
   return { speak, stop, isSpeaking };
 }
