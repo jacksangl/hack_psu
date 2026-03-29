@@ -1,5 +1,5 @@
-import { sentimentToHex, sentimentLabel } from "../../utils/sentimentColors";
-import type { Sentiment } from "../../utils/sentimentColors";
+import { sentimentToHex, sentimentLabel } from "../../../utils/sentimentColors";
+import type { Sentiment } from "../../../utils/sentimentColors";
 
 const LEGEND_ITEMS: Sentiment[] = ["positive", "neutral", "negative", "crisis"];
 

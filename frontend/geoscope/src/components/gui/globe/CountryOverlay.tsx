@@ -1,9 +1,9 @@
 import { useRef, useMemo } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
-import { useGlobeStore } from "../../store/globeStore";
-import { getCountryByCode } from "../../utils/countryData";
-import { latLngToVector3 } from "../../utils/geoHelpers";
+import { useGlobeStore } from "../../../store/globeStore";
+import { getCountryByCode } from "../../../utils/countryData";
+import { latLngToVector3 } from "../../../utils/geoHelpers";
 
 export function CountryOverlay() {
   const selectedCountry = useGlobeStore((s) => s.selectedCountry);

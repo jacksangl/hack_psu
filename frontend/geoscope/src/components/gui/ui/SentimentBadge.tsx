@@ -2,7 +2,7 @@ import {
   sentimentToHex,
   sentimentLabel,
   type Sentiment,
-} from "../../utils/sentimentColors";
+} from "../../../utils/sentimentColors";
 
 interface SentimentBadgeProps {
   sentiment: Sentiment;

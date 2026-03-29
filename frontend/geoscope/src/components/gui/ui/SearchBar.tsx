@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { searchCountries, type CountryInfo } from "../../utils/countryData";
-import { useGlobeStore } from "../../store/globeStore";
+import { searchCountries, type CountryInfo } from "../../../utils/countryData";
+import { useGlobeStore } from "../../../store/globeStore";
 
 export function SearchBar() {
   const [query, setQuery] = useState("");

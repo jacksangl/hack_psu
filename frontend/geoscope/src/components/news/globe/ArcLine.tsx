@@ -1,7 +1,7 @@
 import { useEffect, useRef, useMemo, memo } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
-import { greatCirclePoints } from "../../utils/geoHelpers";
+import { greatCirclePoints } from "../../../utils/geoHelpers";
 
 interface ArcLineProps {
   startLat: number;

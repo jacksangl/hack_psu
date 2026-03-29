@@ -1,6 +1,6 @@
-import { SearchBar } from "../UI/SearchBar";
-import { ModeToggle } from "../UI/ModeToggle";
-import { CategoryFilter } from "../UI/CategoryFilter";
+import { SearchBar } from "../ui/SearchBar";
+import { ModeToggle } from "../ui/ModeToggle";
+import { CategoryFilter } from "../ui/CategoryFilter";
 
 export function TopBar() {
   return (

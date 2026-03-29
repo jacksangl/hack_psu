@@ -1,9 +1,9 @@
 import { useEffect } from "react";
-import { GlobeScene } from "./components/Globe/GlobeScene";
-import { CountryPanel } from "./components/UI/CountryPanel";
-import { TopBar } from "./components/Layout/TopBar";
-import { BottomBar } from "./components/Layout/BottomBar";
-import { LoadingOverlay } from "./components/UI/LoadingOverlay";
+import { GlobeScene } from "./components/gui/globe/GlobeScene";
+import { CountryPanel } from "./components/gui/ui/CountryPanel";
+import { TopBar } from "./components/gui/layout/TopBar";
+import { BottomBar } from "./components/gui/layout/BottomBar";
+import { LoadingOverlay } from "./components/gui/ui/LoadingOverlay";
 import { useGlobalSentiment } from "./hooks/useGlobalSentiment";
 
 function SentimentLoader() {

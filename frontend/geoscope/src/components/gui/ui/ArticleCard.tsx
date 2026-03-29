@@ -1,5 +1,5 @@
 import { SentimentBadge } from "./SentimentBadge";
-import type { Sentiment } from "../../utils/sentimentColors";
+import type { Sentiment } from "../../../utils/sentimentColors";
 
 interface ArticleCardProps {
   title: string;

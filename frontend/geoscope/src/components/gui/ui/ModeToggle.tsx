@@ -1,4 +1,4 @@
-import { useGlobeStore } from "../../store/globeStore";
+import { useGlobeStore } from "../../../store/globeStore";
 
 export function ModeToggle() {
   const connectDotsMode = useGlobeStore((s) => s.connectDotsMode);

@@ -1,9 +1,10 @@
-import { useMemo, memo } from "react";
+import { useMemo, memo, useRef, useEffect } from "react";
 import * as THREE from "three";
-import { useGlobeStore } from "../../store/globeStore";
-import { getCountryByCode } from "../../utils/countryData";
-import { latLngToVector3 } from "../../utils/geoHelpers";
-import { sentimentToHex, type Sentiment } from "../../utils/sentimentColors";
+import { useGlobeStore } from "../../../store/globeStore";
+import { getCountryByCode } from "../../../utils/countryData";
+import { latLngToVector3 } from "../../../utils/geoHelpers";
+import { sentimentToHex, type Sentiment } from "../../../utils/sentimentColors";
+import { useGlobeVisibility } from "../../../hooks/useGlobeVisibility";
 
 const SentimentDot = memo(function SentimentDot({
   lat,
@@ -19,6 +20,8 @@ const SentimentDot = memo(function SentimentDot({
   const selectCountry = useGlobeStore((s) => s.selectCountry);
   const clearSelectedCountry = useGlobeStore((s) => s.clearSelectedCountry);
   const selectedCountry = useGlobeStore((s) => s.selectedCountry);
+  const groupRef = useRef<THREE.Group>(null);
+  const isVisible = useGlobeVisibility(groupRef);
   const position = useMemo(() => latLngToVector3(lat, lng, 2.005), [lat, lng]);
   const quaternion = useMemo(() => {
     const normal = position.clone().normalize();
@@ -29,42 +32,49 @@ const SentimentDot = memo(function SentimentDot({
 
   const color = sentimentToHex(sentiment);
 
+  useEffect(() => {
+    if (!isVisible) {
+      document.body.style.cursor = "default";
+    }
+  }, [isVisible]);
+
   return (
     <group
+      ref={groupRef}
       position={position}
       quaternion={quaternion}
     >
-      <mesh
-        onClick={(e) => {
-          e.stopPropagation();
-          if (selectedCountry === countryCode) {
-            clearSelectedCountry();
-          } else {
-            selectCountry(countryCode);
-          }
-        }}
-        onPointerOver={() => {
-          document.body.style.cursor = "pointer";
-        }}
-        onPointerOut={() => {
-          document.body.style.cursor = "default";
-        }}
-      >
-        <circleGeometry args={[0.09, 12]} />
-        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
-      </mesh>
-
-      <mesh>
-        <circleGeometry args={[0.06, 8]} />
-        <meshBasicMaterial
-          color={color}
-          transparent
-          opacity={0.35}
-          side={THREE.FrontSide}
-          depthWrite={false}
-          blending={THREE.AdditiveBlending}
-        />
-      </mesh>
+      {isVisible && (
+        <>
+          <mesh
+            onClick={(e) => {
+              if (e.delta > 4) return;
+              e.stopPropagation();
+              if (selectedCountry === countryCode) {
+                clearSelectedCountry();
+              } else {
+                selectCountry(countryCode);
+              }
+            }}
+            onPointerOver={() => {
+              document.body.style.cursor = "pointer";
+            }}
+            onPointerOut={() => {
+              document.body.style.cursor = "default";
+            }}
+          >
+            <circleGeometry args={[0.06, 8]} />
+            <meshBasicMaterial
+              color={color}
+              transparent
+              opacity={0.35}
+              side={THREE.FrontSide}
+              depthWrite={false}
+              blending={THREE.AdditiveBlending}
+            />
+          </mesh>
+        </>
+      )}
     </group>
   );
 });

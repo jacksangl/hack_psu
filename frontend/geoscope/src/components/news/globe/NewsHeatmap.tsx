@@ -1,9 +1,9 @@
 import { useMemo, memo } from "react";
 import * as THREE from "three";
-import { useGlobeStore } from "../../store/globeStore";
-import { getCountryByCode, COUNTRIES } from "../../utils/countryData";
-import { latLngToVector3 } from "../../utils/geoHelpers";
-import { heatToHex } from "../../utils/heatmapColors";
+import { useGlobeStore } from "../../../store/globeStore";
+import { COUNTRIES } from "../../../utils/countryData";
+import { latLngToVector3 } from "../../../utils/geoHelpers";
+import { heatToHex } from "../../../utils/heatmapColors";
 
 function NewsHeatmapComponent() {
   const countryNews = useGlobeStore((s) => s.countryNews);

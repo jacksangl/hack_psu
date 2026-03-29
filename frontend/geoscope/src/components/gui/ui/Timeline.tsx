@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useGlobeStore } from "../../store/globeStore";
+import { useGlobeStore } from "../../../store/globeStore";
 
 function formatDayLabel(date: Date, index: number): string {
   if (index === 0) return "Today";

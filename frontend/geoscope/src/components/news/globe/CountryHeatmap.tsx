@@ -3,8 +3,8 @@ import * as THREE from "three";
 import * as topojson from "topojson-client";
 import type { Topology } from "topojson-specification";
 import type { Geometry } from "geojson";
-import { useGlobeStore } from "../../store/globeStore";
-import { sentimentToHex } from "../../utils/sentimentColors";
+import { useGlobeStore } from "../../../store/globeStore";
+import { sentimentToHex } from "../../../utils/sentimentColors";
 
 const TOPO_URL = "https://unpkg.com/world-atlas@2/countries-50m.json";
 const TEX_W = 4096;

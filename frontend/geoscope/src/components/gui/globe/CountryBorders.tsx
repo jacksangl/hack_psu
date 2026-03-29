@@ -2,7 +2,7 @@ import { useMemo, useState, useEffect } from "react";
 import * as THREE from "three";
 import * as topojson from "topojson-client";
 import type { Topology } from "topojson-specification";
-import { latLngToVector3 } from "../../utils/geoHelpers";
+import { latLngToVector3 } from "../../../utils/geoHelpers";
 
 // 110m is much smaller than 50m (~150 KB vs ~1 MB) — big perf win
 const BORDERS_URL = "https://unpkg.com/world-atlas@2/countries-110m.json";
