@@ -46,7 +46,7 @@ export function NewsHomePage() {
     .slice(0, 6);
 
   return (
-    <div className="w-full h-full overflow-y-auto bg-wwn-bg pt-14">
+    <div className="w-full h-full overflow-y-auto bg-wwn-bg pt-24">
       {isLoading && (
         <div className="flex items-center justify-center py-24">
           <div className="w-6 h-6 border-2 border-wwn-primary border-t-transparent rounded-full animate-spin" />
