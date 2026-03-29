@@ -14,7 +14,7 @@ body,
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: #030712;
+  background: #10141a;
   font-family: "Inter", "SF Pro Display", system-ui, sans-serif;
   color: #f1f5f9;
 }
@@ -49,5 +49,21 @@ body,
   .glow-amber {
     box-shadow: 0 0 20px rgba(245, 158, 11, 0.15),
       0 0 40px rgba(245, 158, 11, 0.05);
+  }
+
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
   }
 }

@@ -4,7 +4,10 @@
       "Bash(npm install:*)",
       "Bash(npx tsc:*)",
       "Bash(bun add:*)",
-      "Bash(npx vite:*)"
+      "Bash(npx vite:*)",
+      "Bash(./node_modules/.bin/tsc --noEmit)",
+      "Bash(bun x:*)",
+      "Bash(bun install:*)"
     ]
   }
 }

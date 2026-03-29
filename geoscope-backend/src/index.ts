@@ -9,11 +9,13 @@ import { createCacheStore } from "./lib/redis";
 import { RssScraperProvider } from "./providers/rssScraperProvider";
 import { GeminiBriefProvider } from "./providers/geminiBriefProvider";
 import { NewsRepository } from "./repositories/newsRepository";
+import { BiasComparisonService } from "./services/biasComparisonService";
 import { BriefService } from "./services/briefService";
 import { CompareService } from "./services/compareService";
 import { IngestionService } from "./services/ingestionService";
 import { NewsService } from "./services/newsService";
 import { SentimentService } from "./services/sentimentService";
+import { TrendingService } from "./services/trendingService";
 
 dotenv.config();
 
@@ -53,6 +55,15 @@ const start = async (): Promise<void> => {
     repository: newsRepository,
   });
 
+  const trendingService = new TrendingService({
+    cacheStore,
+  });
+
+  const biasComparisonService = new BiasComparisonService({
+    cacheStore,
+    aiProvider: new GeminiBriefProvider({ apiKey: env.GEMINI_API_KEY }),
+  });
+
   const app = createApp({
     cacheStore,
     ingestApiKey: env.INGEST_API_KEY,
@@ -61,6 +72,8 @@ const start = async (): Promise<void> => {
     briefService,
     sentimentService,
     compareService,
+    trendingService,
+    biasComparisonService,
   });
 
   const server = app.listen(env.PORT, () => {

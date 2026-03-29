@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { Routes, Route } from "react-router-dom";
 import { useGlobalSentiment } from "./data/news/hooks/useGlobalSentiment";
 import { GalaxyBackground } from "./ui/gui/background/GalaxyBackground";
 import { GlobeScene } from "./ui/gui/globe/GlobeScene";
@@ -6,10 +7,25 @@ import { BottomBar } from "./ui/gui/layout/BottomBar";
 import { TopBar } from "./ui/gui/layout/TopBar";
 import { CountryPanel } from "./ui/gui/ui/CountryPanel";
 import { LoadingOverlay } from "./ui/gui/ui/LoadingOverlay";
+import { NewsHomePage } from "./pages/NewsHomePage";
+import { ArticleComparisonPage } from "./pages/ArticleComparisonPage";
 
 function SentimentLoader() {
   useGlobalSentiment();
   return null;
+}
+
+function GlobeView() {
+  return (
+    <div className="w-full h-full relative bg-[#030712]">
+      <GalaxyBackground />
+      <LoadingOverlay />
+      <SentimentLoader />
+      <GlobeScene />
+      <BottomBar />
+      <CountryPanel />
+    </div>
+  );
 }
 
 export default function App() {
@@ -18,14 +34,13 @@ export default function App() {
   }, []);
 
   return (
-    <div className="w-full h-full relative bg-[#030712]">
-      <GalaxyBackground />
-      <LoadingOverlay />
-      <SentimentLoader />
-      <GlobeScene />
+    <div className="w-full h-full relative">
       <TopBar />
-      <BottomBar />
-      <CountryPanel />
+      <Routes>
+        <Route path="/" element={<NewsHomePage />} />
+        <Route path="/globe" element={<GlobeView />} />
+        <Route path="/article/:encodedUrl" element={<ArticleComparisonPage />} />
+      </Routes>
     </div>
   );
 }

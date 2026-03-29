@@ -8,4 +8,6 @@ export const cacheKeys = {
   compare: (countryA: string, countryB: string) => `compare:${countryA}:${countryB}`,
   news: (countryCode: string, query: unknown) => `news:${countryCode}:${hashValue(query)}`,
   sentimentGlobal: () => "sentiment:global",
+  trending: (category?: string) => `trending:${category ?? "all"}`,
+  biasComparison: (urlHash: string) => `bias:${urlHash}`,
 };

@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import { SentimentBadge } from "./SentimentBadge";
 import type { Sentiment } from "../../../utils/sentimentColors";
 
@@ -29,12 +30,16 @@ export function ArticleCard({
   url,
   sentiment,
 }: ArticleCardProps) {
+  const navigate = useNavigate();
+
   return (
-    <a
-      href={url}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="block p-3 rounded-lg bg-globe-card border border-slate-800 hover:border-slate-700 transition-colors duration-200 group"
+    <button
+      onClick={() =>
+        navigate(`/article/${encodeURIComponent(url)}`, {
+          state: { title, source, url },
+        })
+      }
+      className="block w-full text-left p-3 rounded-lg bg-globe-card border border-slate-800 hover:border-slate-700 transition-colors duration-200 group"
     >
       <div className="flex items-start justify-between gap-2 mb-2">
         <h4 className="text-sm font-medium text-slate-200 leading-snug group-hover:text-white transition-colors duration-200">
@@ -49,6 +54,6 @@ export function ArticleCard({
         </div>
         <SentimentBadge sentiment={sentiment} />
       </div>
-    </a>
+    </button>
   );
 }
