@@ -5,7 +5,8 @@ import { fetchCountryNews } from "../client";
 import { clusterPins, type PinData } from "../processing/clusterPins";
 
 const CONNECT_DOTS_COUNTRY_LIMIT = 10;
-const COUNTRY_NEWS_PREFETCH_CONCURRENCY = 6;
+const COUNTRY_NEWS_PREFETCH_CONCURRENCY = 4;
+const PREFETCH_COUNTRY_LIMIT = 30;
 
 export interface NewsGlobeArc {
   key: string;
@@ -56,7 +57,7 @@ export function useNewsGlobeData() {
       prioritized.unshift(selectedCountry);
     }
 
-    return Array.from(new Set(prioritized));
+    return Array.from(new Set(prioritized)).slice(0, PREFETCH_COUNTRY_LIMIT);
   }, [globalSentiment, selectedCountry]);
 
   const connectDotsCountryCodes = useMemo(

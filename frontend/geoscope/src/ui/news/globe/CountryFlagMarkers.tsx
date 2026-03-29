@@ -10,12 +10,20 @@ import { heatToHex } from "../../../utils/heatmapColors";
 import { useGlobeVisibility } from "../../hooks/useGlobeVisibility";
 
 const FLAG_REFERENCE_CAMERA_DISTANCE = 6;
-const FLAG_MIN_SCALE = 0.38;
-const FLAG_MAX_SCALE = 1.08;
-const FLAG_SCALE_CURVE = 1.24;
+const FLAG_MIN_SCALE = 0.22;
+const FLAG_MAX_SCALE = 1.15;
+const FLAG_SCALE_CURVE = 1.8;
 const FLAG_BASE_SIZE_PX = 32;
 const FLAG_BASE_FONT_SIZE_PX = 16;
 const FLAG_BASE_PADDING_X_PX = 6;
+const MAX_VISIBLE_FLAGS = 50;
+
+/** Countries that always show a flag on the globe regardless of ranking. */
+const PRIORITY_COUNTRIES = new Set([
+  "US", "GB", "CN", "RU", "IN", "JP", "DE", "FR", "BR", "AU",
+  "CA", "KR", "IT", "ES", "MX", "ID", "TR", "SA", "IL", "UA",
+  "NG", "ZA", "EG", "PK", "AR", "PL", "NL", "SE", "TW", "TH",
+]);
 
 interface CountryFlagMarkerProps {
   countryCode: string;
@@ -192,9 +200,10 @@ const CountryFlagMarker = memo(function CountryFlagMarker({
 
 export function CountryFlagMarkers() {
   const heatData = useCountryVisualHeatData();
+  const selectedCountry = useGlobeStore((s) => s.selectedCountry);
 
   const markers = useMemo(() => {
-    return Object.entries(heatData)
+    const all = Object.entries(heatData)
       .map(([countryCode, entry]) => {
         const country = getCountryByCode(countryCode);
         if (!country || !entry.hasNews || entry.sourceCount === 0) return null;
@@ -223,7 +232,28 @@ export function CountryFlagMarkers() {
       name: string;
       heat: number;
     }>;
-  }, [heatData]);
+
+    // Always include priority countries + the selected country, then fill to MAX_VISIBLE_FLAGS
+    const result: typeof all = [];
+    const included = new Set<string>();
+
+    for (const m of all) {
+      if (PRIORITY_COUNTRIES.has(m.countryCode) || m.countryCode === selectedCountry) {
+        result.push(m);
+        included.add(m.countryCode);
+      }
+    }
+
+    for (const m of all) {
+      if (result.length >= MAX_VISIBLE_FLAGS) break;
+      if (!included.has(m.countryCode)) {
+        result.push(m);
+        included.add(m.countryCode);
+      }
+    }
+
+    return result;
+  }, [heatData, selectedCountry]);
 
   return (
     <group>
