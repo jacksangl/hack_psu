@@ -11,6 +11,7 @@ interface NewsPinProps {
   sentiment: Sentiment;
   title: string;
   url: string;
+  source?: string;
 }
 
 function NewsPinComponent({
@@ -19,6 +20,7 @@ function NewsPinComponent({
   sentiment,
   title,
   url,
+  source,
 }: NewsPinProps) {
   const setHoveredCountry = useGlobeStore((state) => state.setHoveredCountry);
   const setHoveredStoryTitle = useGlobeStore(
@@ -62,12 +64,16 @@ function NewsPinComponent({
     document.body.style.cursor = "default";
   }, [clearHoveredItem]);
 
+  const setPendingArticleNav = useGlobeStore(
+    (state) => state.setPendingArticleNav
+  );
+
   const handleClick = useCallback(() => {
     clearHoveredItem();
     document.body.style.cursor = "default";
     if (!url) return;
-    window.open(url, "_blank", "noopener,noreferrer");
-  }, [clearHoveredItem, url]);
+    setPendingArticleNav({ title, source: source || "", url });
+  }, [clearHoveredItem, url, title, source, setPendingArticleNav]);
 
   return (
     <group
@@ -92,6 +98,21 @@ function NewsPinComponent({
         >
           <sphereGeometry args={[0.015, 8, 8]} />
           <meshBasicMaterial color={color} />
+        </mesh>
+
+        {/* Larger invisible hit area for easier clicking */}
+        <mesh
+          position={[0, 0.07, 0]}
+          onPointerMove={handlePointerMove}
+          onPointerOut={handlePointerOut}
+          onClick={(event) => {
+            if (event.delta > 4) return;
+            event.stopPropagation();
+            handleClick();
+          }}
+        >
+          <sphereGeometry args={[0.045, 8, 8]} />
+          <meshBasicMaterial visible={false} />
         </mesh>
 
         <mesh position={[0, 0.07, 0]}>

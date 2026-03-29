@@ -1,5 +1,6 @@
 import { useParams, useLocation, useNavigate } from "react-router-dom";
 import { useBiasComparison } from "../ui/hooks/useBiasComparison";
+import { SourcesLoader } from "../ui/gui/ui/SourcesLoader";
 import type { SourceCoverage } from "../data/news/client";
 
 function SourceCard({
@@ -123,7 +124,12 @@ export function ArticleComparisonPage() {
           Back
         </button>
 
-        {isLoading && <LoadingSkeleton />}
+        {isLoading && (
+          <>
+            <SourcesLoader label="Finding similar coverage" />
+            <LoadingSkeleton />
+          </>
+        )}
 
         {error && (
           <div className="p-4 bg-red-500/10 text-red-400 font-body text-sm">

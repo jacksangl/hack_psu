@@ -167,10 +167,10 @@ function eventMatchScore(
   const timeScore = timeProximityScore(referenceTime, candidateTime, config.timeWindowHours);
 
   return (
-    headlineScore * 0.48
-    + signalScore * 0.32
-    + numberScore * 0.1
-    + timeScore * 0.1
+    headlineScore * 0.40
+    + signalScore * 0.30
+    + numberScore * 0.20
+    + timeScore * 0.10
   );
 }
 
@@ -373,15 +373,7 @@ export class BiasComparisonService {
       )
       .sort((left, right) => right.score - left.score);
 
-    const searchResults = (
-      scoredMatches.length > 0
-        ? scoredMatches
-        : timeFiltered.map((item) => ({
-            item,
-            score: headlineSimilarity(params.title, cleanHtml(item.title)),
-            similarity: headlineSimilarity(params.title, cleanHtml(item.title)),
-          }))
-    ).map(({ item }) => item);
+    const searchResults = scoredMatches.map(({ item }) => item);
 
     const originalIdentity = sourceIdentity(params.source, params.url);
     const seenSources = new Set<string>([originalIdentity]);

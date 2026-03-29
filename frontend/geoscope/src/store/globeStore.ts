@@ -22,6 +22,7 @@ interface GlobeState {
   isCameraAnimating: boolean;
   isInteracting: boolean;
   heatmapDirty: boolean;
+  pendingArticleNav: { title: string; source: string; url: string } | null;
 
   selectCountry: (code: string) => void;
   clearSelectedCountry: () => void;
@@ -40,6 +41,7 @@ interface GlobeState {
   setCameraAnimating: (animating: boolean) => void;
   setIsInteracting: (interacting: boolean) => void;
   setHeatmapDirty: (dirty: boolean) => void;
+  setPendingArticleNav: (nav: { title: string; source: string; url: string } | null) => void;
 }
 
 export const useGlobeStore = create<GlobeState>((set) => ({
@@ -58,6 +60,7 @@ export const useGlobeStore = create<GlobeState>((set) => ({
   isCameraAnimating: false,
   isInteracting: false,
   heatmapDirty: true,
+  pendingArticleNav: null,
 
   selectCountry: (code) => set({ selectedCountry: code }),
   clearSelectedCountry: () => set({ selectedCountry: null }),
@@ -90,4 +93,5 @@ export const useGlobeStore = create<GlobeState>((set) => ({
   setCameraAnimating: (animating) => set({ isCameraAnimating: animating }),
   setIsInteracting: (interacting) => set({ isInteracting: interacting }),
   setHeatmapDirty: (dirty) => set({ heatmapDirty: dirty }),
+  setPendingArticleNav: (nav) => set({ pendingArticleNav: nav }),
 }));

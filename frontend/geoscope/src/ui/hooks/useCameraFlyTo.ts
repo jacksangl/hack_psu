@@ -12,6 +12,9 @@ interface FlyToState {
   targetLookAt: THREE.Vector3;
   progress: number;
   duration: number;
+  useSphericalInterp: boolean;
+  startDistance: number;
+  targetDistance: number;
 }
 
 function easeInOutCubic(t: number): number {
@@ -28,6 +31,9 @@ export function useCameraFlyTo() {
     targetLookAt: new THREE.Vector3(),
     progress: 0,
     duration: 1.8,
+    useSphericalInterp: false,
+    startDistance: 6,
+    targetDistance: 4.5,
   });
   const savedPos = useRef(new THREE.Vector3(0, 0, 6));
 
@@ -39,7 +45,16 @@ export function useCameraFlyTo() {
     const t = Math.min(s.progress, 1);
     const eased = easeInOutCubic(t);
 
-    camera.position.lerpVectors(s.startPos, s.targetPos, eased);
+    if (s.useSphericalInterp) {
+      // Slerp the direction so the camera arcs around the globe
+      const startDir = s.startPos.clone().normalize();
+      const targetDir = s.targetPos.clone().normalize();
+      const dir = startDir.clone().lerp(targetDir, eased).normalize();
+      const dist = s.startDistance + (s.targetDistance - s.startDistance) * eased;
+      camera.position.copy(dir.multiplyScalar(dist));
+    } else {
+      camera.position.lerpVectors(s.startPos, s.targetPos, eased);
+    }
 
     const lookAt = new THREE.Vector3().lerpVectors(
       s.startLookAt,
@@ -97,6 +112,9 @@ export function useCameraFlyTo() {
       s.startLookAt.set(0, 0, 0);
       s.targetLookAt.copy(targetLookAt);
       s.progress = 0;
+      s.useSphericalInterp = true;
+      s.startDistance = camera.position.length();
+      s.targetDistance = targetPos.length();
       s.active = true;
       useGlobeStore.getState().setCameraAnimating(true);
     },
@@ -110,6 +128,9 @@ export function useCameraFlyTo() {
     s.startLookAt.set(0, 0, 0);
     s.targetLookAt.set(0, 0, 0);
     s.progress = 0;
+    s.useSphericalInterp = true;
+    s.startDistance = camera.position.length();
+    s.targetDistance = savedPos.current.length();
     s.active = true;
     useGlobeStore.getState().setCameraAnimating(true);
   }, [camera]);
