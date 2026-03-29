@@ -39,6 +39,19 @@ function urlHash(url: string): string {
   return createHash("sha1").update(url).digest("hex").slice(0, 16);
 }
 
+function normalizeSourceName(value: string): string {
+  return value.trim().toLowerCase().replace(/^the\s+/, "").replace(/\s+/g, " ");
+}
+
+function sourceIdentity(source: string, url: string): string {
+  const normalizedSource = normalizeSourceName(source);
+  if (normalizedSource) {
+    return `source:${normalizedSource}`;
+  }
+
+  return `host:${safeHostname(url)}`;
+}
+
 interface BiasComparisonServiceOptions {
   cacheStore: CacheStore;
   aiProvider: AiProvider;
@@ -74,14 +87,14 @@ export class BiasComparisonService {
     const searchResults = await fetchRss(searchUrl);
 
     // Filter out original source and deduplicate
-    const originalHost = safeHostname(params.url);
-    const seenHosts = new Set<string>([originalHost]);
+    const originalIdentity = sourceIdentity(params.source, params.url);
+    const seenSources = new Set<string>([originalIdentity]);
     const otherArticles: RssItem[] = [];
 
     for (const item of searchResults) {
-      const host = safeHostname(item.link);
-      if (!seenHosts.has(host) && otherArticles.length < MAX_OTHER_SOURCES) {
-        seenHosts.add(host);
+      const identity = sourceIdentity(item.source || "", item.link);
+      if (!seenSources.has(identity) && otherArticles.length < MAX_OTHER_SOURCES) {
+        seenSources.add(identity);
         otherArticles.push(item);
       }
     }
