@@ -9,6 +9,7 @@ import { loadBiasComparisonConfig } from "./biasComparisonConfig";
 import { extractTopicsFromContent } from "../utils/articleSignals";
 import { cacheKeys } from "../utils/cacheKeys";
 import { dedup } from "../utils/inflight";
+import { hasSeenSource, markSourceSeen } from "../utils/sourceIdentity";
 
 const TRENDING_CACHE_TTL_SECONDS = 10 * 60;
 const MAX_ARTICLES = 30;
@@ -30,23 +31,6 @@ function articleId(item: RssItem): string {
 function primaryCategory(topics: string[]): string {
   if (topics.length === 0) return "World";
   return topics[0];
-}
-
-function normalizeSourceName(value: string): string {
-  return value.trim().toLowerCase().replace(/^the\s+/, "").replace(/\s+/g, " ");
-}
-
-function sourceIdentity(source: string, url: string): string {
-  const normalizedSource = normalizeSourceName(source);
-  if (normalizedSource) {
-    return `source:${normalizedSource}`;
-  }
-
-  try {
-    return `host:${new URL(url).hostname.replace("www.", "")}`;
-  } catch {
-    return `host:${url}`;
-  }
 }
 
 function significantWords(text: string): Set<string> {
@@ -192,6 +176,113 @@ function eventMatchScore(
   );
 }
 
+function storyText(item: RssItem): string {
+  return cleanHtml([item.title, item.description ?? ""].filter(Boolean).join(" "));
+}
+
+function extractDistinctivePhrases(text: string): string[] {
+  const normalized = cleanHtml(text);
+  const quotedPhrases = [
+    ...(normalized.match(/"([^"\n]{3,80})"/g) ?? []).map((phrase) => phrase.replace(/"/g, "")),
+    ...(normalized.match(/'([^'\n]{3,80})'/g) ?? []).map((phrase) => phrase.replace(/'/g, "")),
+  ];
+  const capitalizedPhrases = normalized.match(/\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3}\b/g) ?? [];
+
+  return dedupeSignals(
+    [...quotedPhrases, ...capitalizedPhrases].map((phrase) => phrase.trim()),
+    10,
+  );
+}
+
+function phraseOverlapRatio(textA: string, textB: string): number {
+  return overlapRatio(extractDistinctivePhrases(textA), extractDistinctivePhrases(textB));
+}
+
+function bestClusterTimeScore(
+  cluster: RssItem[],
+  candidate: RssItem,
+  timeWindowHours: number,
+): number {
+  const candidateTime = Date.parse(candidate.pubDate);
+
+  return cluster.reduce((best, item) => {
+    const itemTime = Date.parse(item.pubDate);
+    return Math.max(best, timeProximityScore(itemTime, candidateTime, timeWindowHours));
+  }, 0);
+}
+
+function shouldJoinCluster(
+  cluster: RssItem[],
+  candidate: RssItem,
+  config: BiasComparisonConfig,
+): boolean {
+  const candidateTitle = cleanHtml(candidate.title);
+  const candidateText = storyText(candidate);
+  const candidateTime = Date.parse(candidate.pubDate);
+  const clusterText = cleanHtml(cluster.map((item) => storyText(item)).join(" "));
+  const clusterSignalOverlap = overlapRatio(
+    extractEventSignals(clusterText, config.maxSignals + 4),
+    extractEventSignals(candidateText, config.maxSignals + 2),
+  );
+  const clusterPhraseOverlap = phraseOverlapRatio(clusterText, candidateText);
+
+  let bestHeadlineSimilarity = 0;
+  let bestTitleScore = 0;
+  let bestTextSimilarity = 0;
+  let bestTextScore = 0;
+  let bestPhraseOverlap = clusterPhraseOverlap;
+
+  for (const item of cluster) {
+    const itemTitle = cleanHtml(item.title);
+    const itemText = storyText(item);
+    const itemTime = Date.parse(item.pubDate);
+
+    bestHeadlineSimilarity = Math.max(
+      bestHeadlineSimilarity,
+      headlineSimilarity(itemTitle, candidateTitle),
+    );
+    bestTitleScore = Math.max(
+      bestTitleScore,
+      eventMatchScore(itemTitle, candidateTitle, itemTime, candidateTime, config),
+    );
+    bestTextSimilarity = Math.max(
+      bestTextSimilarity,
+      headlineSimilarity(itemText, candidateText),
+    );
+    bestTextScore = Math.max(
+      bestTextScore,
+      eventMatchScore(itemText, candidateText, itemTime, candidateTime, config),
+    );
+    bestPhraseOverlap = Math.max(
+      bestPhraseOverlap,
+      phraseOverlapRatio(itemText, candidateText),
+    );
+  }
+
+  const timeScore = bestClusterTimeScore(cluster, candidate, config.timeWindowHours);
+
+  if (
+    bestHeadlineSimilarity >= config.minHeadlineSimilarity
+    || bestTitleScore >= config.minEventMatchScore
+  ) {
+    return true;
+  }
+
+  if (bestTextScore >= Math.max(0.42, config.minEventMatchScore - 0.05)) {
+    return true;
+  }
+
+  if (bestPhraseOverlap > 0 && bestTextSimilarity >= 0.2 && timeScore >= 0.6) {
+    return true;
+  }
+
+  return (
+    clusterSignalOverlap >= 0.34
+    && bestTextSimilarity >= 0.22
+    && timeScore >= 0.6
+  );
+}
+
 function toCoverage(item: RssItem): SourceCoverage {
   return {
     source: item.source || "Unknown",
@@ -211,30 +302,25 @@ function groupItemsByStory(items: RssItem[], config: BiasComparisonConfig): RssI
     }
 
     const reference = items[i];
-    const referenceTitle = cleanHtml(reference.title);
-    const referenceTime = Date.parse(reference.pubDate);
     const cluster: RssItem[] = [reference];
     consumed.add(i);
 
-    for (let j = i + 1; j < items.length; j++) {
-      if (consumed.has(j)) {
-        continue;
-      }
+    let expanded = true;
 
-      const candidate = items[j];
-      const candidateTitle = cleanHtml(candidate.title);
-      const similarity = headlineSimilarity(referenceTitle, candidateTitle);
-      const score = eventMatchScore(
-        referenceTitle,
-        candidateTitle,
-        referenceTime,
-        Date.parse(candidate.pubDate),
-        config,
-      );
+    while (expanded) {
+      expanded = false;
 
-      if (similarity >= config.minHeadlineSimilarity || score >= config.minEventMatchScore) {
-        cluster.push(candidate);
-        consumed.add(j);
+      for (let j = i + 1; j < items.length; j++) {
+        if (consumed.has(j)) {
+          continue;
+        }
+
+        const candidate = items[j];
+        if (shouldJoinCluster(cluster, candidate, config)) {
+          cluster.push(candidate);
+          consumed.add(j);
+          expanded = true;
+        }
       }
     }
 
@@ -298,12 +384,11 @@ export class TrendingService {
       const topics = extractTopicsFromContent({ title, description });
       const seenSources = new Set<string>();
       const distinctCoverage = group.filter((item) => {
-        const identity = sourceIdentity(item.source || "", item.link);
-        if (seenSources.has(identity)) {
+        if (hasSeenSource(seenSources, item.source || "", item.link)) {
           return false;
         }
 
-        seenSources.add(identity);
+        markSourceSeen(seenSources, item.source || "", item.link);
         return true;
       });
       const otherSources = distinctCoverage.slice(1).map(toCoverage);

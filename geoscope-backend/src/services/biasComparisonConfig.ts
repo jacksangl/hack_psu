@@ -21,7 +21,7 @@ export const loadBiasComparisonConfig = (
   input: NodeJS.ProcessEnv = process.env,
 ): BiasComparisonConfig => ({
   cacheTtlSeconds: parseInteger(input.BIAS_COMPARISON_CACHE_TTL_SECONDS, 30 * 60),
-  maxOtherSources: parseInteger(input.BIAS_COMPARISON_MAX_OTHER_SOURCES, 5),
+  maxOtherSources: parseInteger(input.BIAS_COMPARISON_MAX_OTHER_SOURCES, 8),
   timeWindowHours: parseInteger(input.BIAS_COMPARISON_TIME_WINDOW_HOURS, 48),
   minHeadlineSimilarity: parseFloatValue(input.BIAS_COMPARISON_MIN_HEADLINE_SIMILARITY, 0.35),
   minEventMatchScore: parseFloatValue(input.BIAS_COMPARISON_MIN_EVENT_MATCH_SCORE, 0.45),

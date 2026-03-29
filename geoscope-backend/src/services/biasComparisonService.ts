@@ -2,17 +2,94 @@ import { createHash } from "node:crypto";
 
 import { logger } from "../lib/logger";
 import type { CacheStore } from "../lib/redis";
-import type { AiProvider } from "../providers/aiProvider";
-import { cleanHtml, fetchRss, type RssItem } from "../providers/rssScraperProvider";
-import type { BiasComparisonData, BiasComparisonResponse, SourceCoverage } from "../types/biasComparison";
+import type { AiProvider, GenerateComparisonParams } from "../providers/aiProvider";
+import { fetchArticleContext } from "../providers/articleContextProvider";
+import { cleanHtml, fetchRss, getGlobalFeedItems, type RssItem } from "../providers/rssScraperProvider";
+import type {
+  BiasComparisonData,
+  BiasComparisonResponse,
+  SourceBiasAnalysis,
+  SourceCoverage,
+} from "../types/biasComparison";
 import { cacheKeys } from "../utils/cacheKeys";
 import { dedup } from "../utils/inflight";
+import { hasSeenSource, markSourceSeen } from "../utils/sourceIdentity";
 import type { BiasComparisonConfig } from "./biasComparisonConfig";
 import { loadBiasComparisonConfig } from "./biasComparisonConfig";
 
 const MIN_TOKEN_LENGTH = 4;
 const MIN_SEARCH_TOKEN_LENGTH = 6;
 const MAX_SEARCH_TERMS = 7;
+const MAX_PROPAGATED_QUERIES = 4;
+const MAX_QUERY_SIGNAL_TERMS = 5;
+
+type ComparisonArticleInput = GenerateComparisonParams["otherSources"][number];
+type ComparisonOriginalArticleInput = GenerateComparisonParams["originalArticle"];
+
+interface FramingBucketDefinition {
+  detailLabel: string;
+  toneLabel: string;
+  patterns: RegExp[];
+  priority: number;
+}
+
+interface FramingProfile {
+  emphasizedDetails: string[];
+  overallOpinion: string;
+  toneLabel: string;
+  leadEvidence: string | null;
+}
+
+const FRAMING_BUCKETS: FramingBucketDefinition[] = [
+  {
+    detailLabel: "police action and immediate public-safety risk",
+    toneLabel: "security-first",
+    patterns: [/\bpolice\b/i, /\barrest/i, /\bthwart/i, /\battack/i, /\bexplosive/i, /\bbomb/i, /\bsecurity\b/i],
+    priority: 1,
+  },
+  {
+    detailLabel: "the legal case and prosecutors' account",
+    toneLabel: "legalistic",
+    patterns: [/\baccused\b/i, /\bcharged\b/i, /\bprosecutor/i, /\bcourt\b/i, /\binvestigat/i, /\bterror/i, /\bsuspect\b/i],
+    priority: 2,
+  },
+  {
+    detailLabel: "victims and the immediate human toll",
+    toneLabel: "human-impact-focused",
+    patterns: [/\bkilled\b/i, /\binjured\b/i, /\bdead\b/i, /\bwounded\b/i, /\bvictim/i, /\bfamil/i, /\bsurviv/i],
+    priority: 3,
+  },
+  {
+    detailLabel: "official reaction and political consequences",
+    toneLabel: "politically framed",
+    patterns: [/\bpresident\b/i, /\bminister\b/i, /\bgovernment\b/i, /\bparliament\b/i, /\bpolicy\b/i, /\bofficials said\b/i],
+    priority: 4,
+  },
+  {
+    detailLabel: "demonstrators' motives and civil-liberties stakes",
+    toneLabel: "movement-focused",
+    patterns: [/\bprotest/i, /\bdemonstrat/i, /\bactivist/i, /\bmarch\b/i, /\bcivil liberties\b/i, /\braids?\b/i, /\brights?\b/i],
+    priority: 5,
+  },
+  {
+    detailLabel: "financial motives and commercial fallout",
+    toneLabel: "economic-consequence-focused",
+    patterns: [/\bmoney\b/i, /\bmarket/i, /\bbank\b/i, /\bheist/i, /\bretail/i, /\bhandbag/i, /\beuro\b/i, /\bfinancial\b/i],
+    priority: 6,
+  },
+  {
+    detailLabel: "the scale, spread, or repeated nature of the incident",
+    toneLabel: "trend-oriented",
+    patterns: [/\bmore than\b/i, /\bacross\b/i, /\bmultiple\b/i, /\bspate\b/i, /\bwave\b/i, /\bseries\b/i, /\bseveral\b/i],
+    priority: 7,
+  },
+  {
+    detailLabel: "rhetoric, symbolism, and how the story is being narrated",
+    toneLabel: "interpretive",
+    patterns: [/\bmeme/i, /\bnarrative/i, /\brhetoric/i, /\bsymbol/i, /\bimagery\b/i, /\bframing\b/i, /\bportray/i],
+    priority: 8,
+  },
+];
 
 function tokenizeTitle(text: string): string[] {
   return (text.toLowerCase().match(/[\p{L}\p{N}][\p{L}\p{N}-]*/gu) ?? [])
@@ -54,6 +131,38 @@ function dedupeSignals(values: Array<string | null | undefined>, limit: number):
   return result;
 }
 
+function formatSignalList(values: string[]): string {
+  if (values.length === 0) {
+    return "";
+  }
+
+  if (values.length === 1) {
+    return values[0];
+  }
+
+  if (values.length === 2) {
+    return `${values[0]} and ${values[1]}`;
+  }
+
+  return `${values.slice(0, -1).join(", ")}, and ${values[values.length - 1]}`;
+}
+
+function stripTrailingPunctuation(value: string): string {
+  return value.trim().replace(/[.!?]+$/g, "");
+}
+
+function lowercaseFirstCharacter(value: string): string {
+  return value ? value.charAt(0).toLowerCase() + value.slice(1) : value;
+}
+
+function normalizeSentence(value: string): string {
+  return stripTrailingPunctuation(value).toLowerCase();
+}
+
+function indefiniteArticle(value: string): "a" | "an" {
+  return /^[aeiou]/i.test(value.trim()) ? "an" : "a";
+}
+
 function extractSearchTerms(title: string): string[] {
   const namedEntities = (title.match(/\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)+\b/g) ?? [])
     .map((entity) => `"${entity}"`);
@@ -63,6 +172,31 @@ function extractSearchTerms(title: string): string[] {
     .sort((left, right) => right.length - left.length);
 
   return dedupeSignals([...namedEntities, ...numberTokens, ...longTokens], MAX_SEARCH_TERMS);
+}
+
+function buildSearchQueries(title: string, config: BiasComparisonConfig): string[] {
+  const normalizedTitle = cleanHtml(title).replace(/\s+/g, " ").trim();
+  const coreTokens = tokenizeTitle(title);
+  const keywordQuery = extractSearchTerms(title).join(" ");
+  const leadTokenQuery = coreTokens.slice(0, MAX_QUERY_SIGNAL_TERMS).join(" ");
+  const entityFocusedQuery = dedupeSignals(
+    [
+      ...(title.match(/\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)+\b/g) ?? []).map((entity) => `"${entity.trim()}"`),
+      ...extractNumberSignals(title),
+      ...coreTokens.sort((left, right) => right.length - left.length),
+    ],
+    MAX_QUERY_SIGNAL_TERMS,
+  ).join(" ");
+
+  return dedupeSignals(
+    [
+      normalizedTitle,
+      keywordQuery,
+      leadTokenQuery,
+      entityFocusedQuery,
+    ],
+    MAX_PROPAGATED_QUERIES,
+  );
 }
 
 function extractEventSignals(title: string, maxSignals: number): string[] {
@@ -192,49 +326,333 @@ function filterByTimeProximity(items: RssItem[], timeWindowHours: number): RssIt
   return filtered.length > 0 ? filtered : items;
 }
 
+function dedupeItemsByUrl(items: RssItem[]): RssItem[] {
+  const seenUrls = new Set<string>();
+  const deduped: RssItem[] = [];
+
+  for (const item of items) {
+    if (!item.link || seenUrls.has(item.link)) {
+      continue;
+    }
+
+    seenUrls.add(item.link);
+    deduped.push(item);
+  }
+
+  return deduped;
+}
+
 function urlHash(url: string): string {
   return createHash("sha1").update(url).digest("hex").slice(0, 16);
 }
 
-function normalizeSourceName(value: string): string {
-  return value.trim().toLowerCase().replace(/^the\s+/, "").replace(/\s+/g, " ");
+function emptyBiasAnalysis(): SourceBiasAnalysis {
+  return {
+    emphasizedDetails: [],
+    overallOpinion: "",
+  };
 }
 
-function sourceIdentity(source: string, url: string): string {
-  const normalizedSource = normalizeSourceName(source);
-  if (normalizedSource) {
-    return `source:${normalizedSource}`;
+function hasBiasAnalysis(analysis: SourceBiasAnalysis | null | undefined): analysis is SourceBiasAnalysis {
+  return Boolean(
+    analysis
+    && (
+      analysis.emphasizedDetails.length > 0
+      || analysis.overallOpinion.trim()
+    ),
+  );
+}
+
+function toCoverage(item: RssItem): SourceCoverage {
+  return {
+    source: item.source || "Unknown",
+    headline: cleanHtml(item.title),
+    summary: item.description ? cleanHtml(item.description) : "",
+    url: item.link,
+    detectedBias: emptyBiasAnalysis(),
+  };
+}
+
+function normalizeCoverage(coverage: SourceCoverage): SourceCoverage | null {
+  const source = coverage.source?.trim() || "Unknown";
+  const headline = coverage.headline?.trim();
+  const url = coverage.url?.trim();
+
+  if (!headline || !url) {
+    return null;
   }
 
-  return `host:${safeHostname(url)}`;
+  return {
+    source,
+    headline,
+    summary: coverage.summary?.trim() ?? "",
+    url,
+    detectedBias: coverage.detectedBias ?? emptyBiasAnalysis(),
+  };
+}
+
+function articleText(article: {
+  headline: string;
+  description?: string | null;
+  evidence?: string[];
+  summary?: string | null;
+}): string {
+  return [article.headline, article.description ?? "", article.summary ?? "", ...(article.evidence ?? [])]
+    .filter(Boolean)
+    .join(" ");
+}
+
+function buildEvidenceDescription(description: string | null | undefined, evidence: string[]): string | null {
+  const cleanedDescription = description?.trim() ?? "";
+  const cleanedEvidence = dedupeSignals(evidence, 3);
+
+  if (cleanedEvidence.length === 0) {
+    return cleanedDescription || null;
+  }
+
+  const evidenceBlock = cleanedEvidence.map((detail) => `- ${detail}`).join("\n");
+
+  if (cleanedDescription) {
+    return `${cleanedDescription}\nEvidence:\n${evidenceBlock}`;
+  }
+
+  return `Evidence:\n${evidenceBlock}`;
+}
+
+function scoreFramingBucket(bucket: FramingBucketDefinition, text: string, leadEvidence: string | null): number {
+  let score = bucket.patterns.reduce((total, pattern) => total + (pattern.test(text) ? 1 : 0), 0);
+
+  if (leadEvidence) {
+    score += bucket.patterns.reduce((total, pattern) => total + (pattern.test(leadEvidence) ? 1 : 0), 0);
+  }
+
+  return score;
+}
+
+function buildFramingProfile(article: {
+  headline: string;
+  description?: string | null;
+  evidence?: string[];
+  summary?: string | null;
+}): FramingProfile {
+  const leadEvidence = dedupeSignals(
+    [...(article.evidence ?? []), article.summary, article.description],
+    1,
+  )[0] ?? null;
+  const text = articleText(article);
+  const rankedBuckets = FRAMING_BUCKETS
+    .map((bucket) => ({
+      bucket,
+      score: scoreFramingBucket(bucket, text, leadEvidence),
+    }))
+    .filter(({ score }) => score > 0)
+    .sort((left, right) => right.score - left.score || left.bucket.priority - right.bucket.priority)
+    .slice(0, 2)
+    .map(({ bucket }) => bucket);
+
+  const emphasizedDetails = rankedBuckets.length > 0
+    ? dedupeSignals(rankedBuckets.map((bucket) => bucket.detailLabel), 3)
+    : dedupeSignals(
+      [
+        ...extractEventSignals(text, 4),
+        article.headline.split(/[:,-]/)[0]?.trim() ?? null,
+        leadEvidence,
+      ],
+      3,
+    );
+
+  const toneLabel = rankedBuckets.length > 0
+    ? formatSignalList(rankedBuckets.map((bucket) => bucket.toneLabel))
+    : "matter-of-fact";
+
+  let overallOpinion = rankedBuckets.length > 0
+    ? `This source adopts ${indefiniteArticle(toneLabel)} ${toneLabel} tone, foregrounding ${formatSignalList(emphasizedDetails)}.`
+    : leadEvidence?.trim()
+      ? `This source stays largely matter-of-fact, using ${lowercaseFirstCharacter(stripTrailingPunctuation(leadEvidence))} to anchor the story.`
+      : `This source centers its coverage on "${article.headline}".`;
+
+  if (
+    leadEvidence
+    && normalizeSentence(leadEvidence) !== normalizeSentence(overallOpinion)
+    && !normalizeSentence(overallOpinion).includes(normalizeSentence(leadEvidence))
+  ) {
+    overallOpinion = `${overallOpinion} It leans on ${lowercaseFirstCharacter(stripTrailingPunctuation(leadEvidence))}.`;
+  }
+
+  return {
+    emphasizedDetails,
+    overallOpinion,
+    toneLabel,
+    leadEvidence,
+  };
+}
+
+function buildFallbackSourceSummary(article: {
+  source: string;
+  headline: string;
+  description?: string | null;
+  evidence?: string[];
+}): string {
+  const profile = buildFramingProfile(article);
+  const lead = dedupeSignals([profile.leadEvidence, ...(article.evidence ?? []), article.description], 1)[0];
+
+  if (lead) {
+    return lead;
+  }
+
+  if (profile.overallOpinion) {
+    return profile.overallOpinion;
+  }
+
+  return `Coverage from ${article.source} centers on "${article.headline}".`;
+}
+
+function buildDifferencePoint(
+  referenceArticle: { source: string; headline: string; description?: string | null; evidence?: string[] },
+  comparisonArticle: { source: string; headline: string; description?: string | null; evidence?: string[] },
+): string | null {
+  const referenceProfile = buildFramingProfile(referenceArticle);
+  const comparisonProfile = buildFramingProfile(comparisonArticle);
+  const referenceDetails = formatSignalList(referenceProfile.emphasizedDetails);
+  const comparisonDetails = formatSignalList(comparisonProfile.emphasizedDetails);
+  const tonesDiffer = normalizeSentence(referenceProfile.toneLabel) !== normalizeSentence(comparisonProfile.toneLabel);
+  const detailsDiffer = normalizeSentence(referenceDetails) !== normalizeSentence(comparisonDetails);
+
+  if (tonesDiffer && detailsDiffer) {
+    return `${comparisonArticle.source} gives the story a ${comparisonProfile.toneLabel} tone by foregrounding ${comparisonDetails}, while ${referenceArticle.source} is more ${referenceProfile.toneLabel} and centers ${referenceDetails}.`;
+  }
+
+  if (detailsDiffer) {
+    return `${comparisonArticle.source} foregrounds ${comparisonDetails}, which makes its coverage feel more ${comparisonProfile.toneLabel}; ${referenceArticle.source} instead centers ${referenceDetails}.`;
+  }
+
+  if (comparisonProfile.leadEvidence && referenceProfile.leadEvidence) {
+    return `${comparisonArticle.source} leans on ${lowercaseFirstCharacter(stripTrailingPunctuation(comparisonProfile.leadEvidence))}, while ${referenceArticle.source} leans on ${lowercaseFirstCharacter(stripTrailingPunctuation(referenceProfile.leadEvidence))}.`;
+  }
+
+  return comparisonProfile.overallOpinion;
+}
+
+function fallbackBiasAnalysis(coverage: Pick<SourceCoverage, "headline" | "summary"> & { evidence?: string[] }): SourceBiasAnalysis {
+  const profile = buildFramingProfile(coverage);
+
+  return {
+    emphasizedDetails: profile.emphasizedDetails,
+    overallOpinion: profile.overallOpinion,
+  };
+}
+
+function ensureDetectedBias(coverage: SourceCoverage): SourceCoverage {
+  const normalized = normalizeCoverage(coverage);
+
+  if (!normalized) {
+    return {
+      ...coverage,
+      detectedBias: hasBiasAnalysis(coverage.detectedBias)
+        ? coverage.detectedBias
+        : fallbackBiasAnalysis({
+          headline: coverage.headline ?? "",
+          summary: coverage.summary ?? "",
+        }),
+    };
+  }
+
+  return {
+    ...normalized,
+    detectedBias: hasBiasAnalysis(normalized.detectedBias)
+      ? {
+        emphasizedDetails: dedupeSignals(normalized.detectedBias.emphasizedDetails, 4),
+        overallOpinion: normalized.detectedBias.overallOpinion.trim(),
+      }
+      : fallbackBiasAnalysis(normalized),
+  };
+}
+
+function ensureDetectedBiasInResponse(data: BiasComparisonData): BiasComparisonData {
+  return {
+    ...data,
+    originalSource: ensureDetectedBias(data.originalSource),
+    otherSources: data.otherSources.map((coverage) => ensureDetectedBias(coverage)),
+  };
+}
+
+function dedupeCoverages(
+  coverages: SourceCoverage[],
+  originalSource: string,
+  originalUrl: string,
+  limit: number,
+): SourceCoverage[] {
+  const seenSources = new Set<string>();
+  markSourceSeen(seenSources, originalSource, originalUrl);
+  const deduped: SourceCoverage[] = [];
+
+  for (const coverage of coverages) {
+    const normalized = normalizeCoverage(coverage);
+    if (!normalized) {
+      continue;
+    }
+
+    if (hasSeenSource(seenSources, normalized.source, normalized.url)) {
+      continue;
+    }
+
+    markSourceSeen(seenSources, normalized.source, normalized.url);
+    deduped.push(normalized);
+
+    if (deduped.length >= limit) {
+      break;
+    }
+  }
+
+  return deduped;
+}
+
+function mayBeSameStory(
+  referenceTitle: string,
+  candidateTitle: string,
+  config: BiasComparisonConfig,
+): boolean {
+  const similarity = headlineSimilarity(referenceTitle, candidateTitle);
+  const signalOverlap = overlapRatio(
+    extractEventSignals(referenceTitle, config.maxSignals),
+    extractEventSignals(candidateTitle, config.maxSignals),
+  );
+  const numberOverlap = overlapRatio(
+    extractNumberSignals(referenceTitle),
+    extractNumberSignals(candidateTitle),
+  );
+
+  return (
+    similarity >= Math.max(0.18, config.minHeadlineSimilarity * 0.5)
+    || signalOverlap >= 0.34
+    || numberOverlap > 0
+  );
 }
 
 function buildFallbackComparison(
   params: { title: string; source: string },
-  otherArticles: RssItem[],
+  originalArticle: ComparisonOriginalArticleInput,
+  otherArticles: ComparisonArticleInput[],
   otherCoverages: SourceCoverage[],
   config: BiasComparisonConfig,
 ): BiasComparisonData {
-  const keyTopics = dedupeSignals(extractEventSignals(params.title, config.maxSignals), 5);
+  const combinedArticleText = [
+    articleText(originalArticle),
+    ...otherArticles.map((article) => articleText(article)),
+  ].join(" ");
+  const keyTopics = dedupeSignals(extractEventSignals(combinedArticleText, config.maxSignals + 2), 5);
   const sharedSignals = keyTopics.slice(0, 3);
-  const sources = dedupeSignals(
-    [params.source, ...otherCoverages.map((coverage) => coverage.source)],
-    6,
+  const differencePoints = dedupeSignals(
+    otherArticles.map((article) => buildDifferencePoint(originalArticle, article)),
+    4,
   );
-  const uniqueSources = sources.join(", ");
-
   const bulletSummary = dedupeSignals(
     [
-      `${sources.length} outlets are covering the same event: ${uniqueSources}.`,
       sharedSignals.length > 0
-        ? `Shared event markers across headlines include ${sharedSignals.join(", ")}.`
+        ? `Across the matched reporting, the story centers ${formatSignalList(sharedSignals)}.`
         : null,
-      otherArticles[0]?.pubDate
-        ? `Matched coverage is clustered within roughly ${config.timeWindowHours} hours to stay on the same incident.`
-        : "Matched coverage is restricted to closely related headlines rather than broad topic overlap.",
-      otherCoverages.length > 0
-        ? "Coverage differences mostly come from what each outlet foregrounds in its headline and summary."
-        : null,
+      buildFallbackSourceSummary(originalArticle),
+      ...differencePoints,
     ],
     4,
   );
@@ -242,43 +660,27 @@ function buildFallbackComparison(
   const consensus = dedupeSignals(
     [
       sharedSignals.length > 0
-        ? `Outlets consistently reference ${sharedSignals.join(", ")}.`
+        ? `Multiple sources consistently reference ${formatSignalList(sharedSignals)}.`
         : null,
-      otherCoverages.length > 0
-        ? "The core incident described in the original headline is present across the matched sources."
-        : null,
-      otherArticles.length > 0
-        ? "Coverage falls inside the same short reporting window, indicating the same event cycle."
-        : null,
+      dedupeSignals(
+        otherArticles.flatMap((article) => article.evidence ?? []),
+        1,
+      )[0],
     ],
     3,
   );
 
-  const disagreements = dedupeSignals(
-    [
-      otherCoverages.length > 0
-        ? "Headlines vary in which details they emphasize first, such as actors, location, or immediate consequences."
-        : null,
-      otherCoverages.length > 1
-        ? "Some outlets add context or qualifiers that others leave out in their initial framing."
-        : null,
-    ],
-    3,
-  );
+  const disagreements = dedupeSignals(differencePoints, 3);
 
   const keyDifferences = dedupeSignals(
     [
-      otherCoverages.length > 0
-        ? `${otherCoverages[0].source} emphasizes "${otherCoverages[0].headline}".`
-        : null,
-      otherCoverages.length > 1
-        ? `${otherCoverages[1].source} frames the event differently in its headline wording.`
-        : null,
-      otherCoverages.length > 2
-        ? "Source selection changes which follow-on implications are highlighted."
-        : null,
+      ...differencePoints,
+      ...otherArticles.map((article) => {
+        const leadSummary = buildFallbackSourceSummary(article).replace(/[.!?]+$/g, "");
+        return leadSummary ? `${article.source} foregrounds ${leadSummary}.` : null;
+      }),
     ],
-    3,
+    4,
   );
 
   return {
@@ -287,10 +689,29 @@ function buildFallbackComparison(
     originalSource: {
       source: params.source,
       headline: params.title,
-      summary: bulletSummary[0] ?? "",
+      summary: buildFallbackSourceSummary(originalArticle),
       url: "",
+      detectedBias: fallbackBiasAnalysis({
+        headline: params.title,
+        summary: buildFallbackSourceSummary(originalArticle),
+        evidence: originalArticle.evidence,
+      }),
     },
-    otherSources: otherCoverages,
+    otherSources: otherCoverages.map((coverage, index) => ({
+      ...coverage,
+      summary: buildFallbackSourceSummary(otherArticles[index] ?? coverage),
+      detectedBias:
+        coverage.detectedBias && (
+          coverage.detectedBias.emphasizedDetails.length > 0
+          || coverage.detectedBias.overallOpinion.trim()
+        )
+          ? coverage.detectedBias
+          : fallbackBiasAnalysis({
+            ...coverage,
+            summary: buildFallbackSourceSummary(otherArticles[index] ?? coverage),
+            evidence: otherArticles[index]?.evidence ?? [],
+          }),
+    })),
     keyDifferences,
     keyTopics,
     consensus,
@@ -312,6 +733,12 @@ function buildSingleSourceResponse(
         params.description?.trim()
         || "Only one distinct source was found for this story in the current search window.",
       url: params.url,
+      detectedBias: fallbackBiasAnalysis({
+        headline: params.title,
+        summary:
+          params.description?.trim()
+          || "Only one distinct source was found for this story in the current search window.",
+      }),
     },
     otherSources: [],
     keyDifferences: [],
@@ -352,6 +779,149 @@ export class BiasComparisonService {
     return dedup(cacheKey, () => this.computeComparison(params, cacheKey));
   }
 
+  private async searchMatchingArticles(
+    params: { title: string; source: string; url: string },
+  ): Promise<RssItem[]> {
+    const queries = buildSearchQueries(params.title, this.config);
+
+    logger.info("bias comparison search propagation", {
+      queries,
+      originalSource: params.source,
+    });
+
+    const [queryResults, globalFeedItems] = await Promise.all([
+      Promise.all(
+        queries.map((query) =>
+          fetchRss(`https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=en&gl=US&ceid=US:en`),
+        ),
+      ),
+      getGlobalFeedItems(),
+    ]);
+
+    const searchResults = dedupeItemsByUrl(queryResults.flat());
+    const globalMatches = globalFeedItems.filter((item) =>
+      mayBeSameStory(params.title, cleanHtml(item.title), this.config),
+    );
+    const candidatePool = dedupeItemsByUrl([...searchResults, ...globalMatches]);
+    const timeFiltered = filterByTimeProximity(candidatePool, this.config.timeWindowHours);
+    const referencePool = filterByTimeProximity(
+      searchResults.length > 0 ? searchResults : candidatePool,
+      this.config.timeWindowHours,
+    );
+    const referenceTime = referencePool.reduce((latest, item) => {
+      const parsed = Date.parse(item.pubDate);
+      return Number.isNaN(parsed) ? latest : Math.max(latest, parsed);
+    }, 0);
+
+    const scoredMatches = timeFiltered
+      .map((item) => {
+        const candidateTitle = cleanHtml(item.title);
+        const candidateTime = Date.parse(item.pubDate);
+        return {
+          item,
+          score: eventMatchScore(
+            params.title,
+            candidateTitle,
+            referenceTime,
+            candidateTime,
+            this.config,
+          ),
+          similarity: headlineSimilarity(params.title, candidateTitle),
+        };
+      })
+      .filter(
+        ({ similarity, score }) =>
+          similarity >= this.config.minHeadlineSimilarity
+          || score >= this.config.minEventMatchScore,
+      )
+      .sort((left, right) => right.score - left.score);
+
+    const seenSources = new Set<string>();
+    markSourceSeen(seenSources, params.source, params.url);
+    const matchedArticles: RssItem[] = [];
+
+    for (const { item } of scoredMatches) {
+      if (hasSeenSource(seenSources, item.source || "", item.link)) {
+        continue;
+      }
+
+      markSourceSeen(seenSources, item.source || "", item.link);
+      matchedArticles.push(item);
+
+      if (matchedArticles.length >= this.config.maxOtherSources) {
+        break;
+      }
+    }
+
+    return matchedArticles;
+  }
+
+  private async buildComparisonArticleInput(params: {
+    source: string;
+    headline: string;
+    url: string;
+    description?: string | null;
+    embedEvidenceInDescription?: boolean;
+  }): Promise<ComparisonArticleInput> {
+    const baseDescription = params.description?.trim() ?? null;
+    const context = await fetchArticleContext(params.url, baseDescription);
+    const evidence = dedupeSignals(
+      [...context.evidence, context.summary, baseDescription],
+      4,
+    );
+    const description = params.embedEvidenceInDescription
+      ? buildEvidenceDescription(baseDescription ?? context.summary ?? null, evidence)
+      : baseDescription ?? context.summary ?? null;
+
+    return {
+      source: params.source,
+      headline: params.headline,
+      description,
+      evidence,
+    };
+  }
+
+  private async buildComparisonInputs(
+    params: { title: string; source: string; url: string; description?: string | null },
+    otherCoverages: SourceCoverage[],
+    otherArticles: RssItem[],
+  ): Promise<{
+    originalArticle: ComparisonOriginalArticleInput;
+    otherSources: ComparisonArticleInput[];
+  }> {
+    const originalArticlePromise = this.buildComparisonArticleInput({
+      source: params.source,
+      headline: params.title,
+      url: params.url,
+      description: params.description ?? null,
+      embedEvidenceInDescription: true,
+    });
+
+    const otherSourcePromises = otherCoverages.map((coverage) => {
+      const matchingArticle = otherArticles.find((article) => article.link === coverage.url);
+      const description = matchingArticle?.description
+        ? cleanHtml(matchingArticle.description)
+        : coverage.summary || null;
+
+      return this.buildComparisonArticleInput({
+        source: coverage.source,
+        headline: coverage.headline,
+        url: coverage.url,
+        description,
+      });
+    });
+
+    const [originalArticle, otherSources] = await Promise.all([
+      originalArticlePromise,
+      Promise.all(otherSourcePromises),
+    ]);
+
+    return {
+      originalArticle,
+      otherSources,
+    };
+  }
+
   private async computeComparison(
     params: { title: string; source: string; url: string; description?: string | null; knownSources?: SourceCoverage[] },
     cacheKey: string,
@@ -359,77 +929,49 @@ export class BiasComparisonService {
     const cached = await this.cacheStore.getJson<BiasComparisonData>(cacheKey);
 
     if (cached) {
-      return { ...cached, cached: true };
+      return { ...ensureDetectedBiasInResponse(cached), cached: true };
     }
 
-    let otherArticles: RssItem[] = [];
-    let otherCoverages: SourceCoverage[];
+    const seededCoverages = dedupeCoverages(
+      params.knownSources ?? [],
+      params.source,
+      params.url,
+      this.config.maxOtherSources,
+    );
 
-    // If the frontend already found sources (from trending data), use them directly
-    if (params.knownSources && params.knownSources.length > 0) {
-      logger.info("bias comparison using known sources", {
-        count: params.knownSources.length,
+    if (seededCoverages.length > 0) {
+      logger.info("bias comparison using seeded sources", {
+        count: seededCoverages.length,
         originalSource: params.source,
       });
-      otherCoverages = params.knownSources;
-    } else {
-      // Fall back to searching Google News RSS
-      const keywords = extractSearchTerms(params.title).join(" ");
-      logger.info("bias comparison search", {
-        keywords,
-        originalSource: params.source,
-      });
+    }
 
-      const searchUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(keywords)}&hl=en&gl=US&ceid=US:en`;
-      const rawResults = await fetchRss(searchUrl);
-      const timeFiltered = filterByTimeProximity(rawResults, this.config.timeWindowHours);
-      const referenceTime = timeFiltered.reduce((latest, item) => {
-        const parsed = Date.parse(item.pubDate);
-        return Number.isNaN(parsed) ? latest : Math.max(latest, parsed);
-      }, 0);
+    const searchResults = seededCoverages.length < this.config.maxOtherSources
+      ? await this.searchMatchingArticles(params)
+      : [];
 
-      const scoredMatches = timeFiltered
-        .map((item) => {
-          const candidateTitle = cleanHtml(item.title);
-          const candidateTime = Date.parse(item.pubDate);
-          return {
-            item,
-            score: eventMatchScore(
-              params.title,
-              candidateTitle,
-              referenceTime,
-              candidateTime,
-              this.config,
-            ),
-            similarity: headlineSimilarity(params.title, candidateTitle),
-          };
-        })
-        .filter(
-          ({ similarity, score }) =>
-            similarity >= this.config.minHeadlineSimilarity
-            || score >= this.config.minEventMatchScore,
-        )
-        .sort((left, right) => right.score - left.score);
+    const seenSources = new Set<string>();
+    markSourceSeen(seenSources, params.source, params.url);
+    for (const coverage of seededCoverages) {
+      markSourceSeen(seenSources, coverage.source, coverage.url);
+    }
 
-      const searchResults = scoredMatches.map(({ item }) => item);
+    const otherCoverages = [...seededCoverages];
+    const otherArticles: RssItem[] = [];
 
-      const originalIdentity = sourceIdentity(params.source, params.url);
-      const seenSources = new Set<string>([originalIdentity]);
-
-      for (const item of searchResults) {
-        const identity = sourceIdentity(item.source || "", item.link);
-        if (!seenSources.has(identity) && otherArticles.length < this.config.maxOtherSources) {
-          seenSources.add(identity);
-          otherArticles.push(item);
-        }
+    for (const item of searchResults) {
+      const coverage = toCoverage(item);
+      if (hasSeenSource(seenSources, coverage.source, coverage.url)) {
+        continue;
       }
 
-      otherCoverages = otherArticles.map((item) => ({
-        source: item.source || "Unknown",
-        headline: cleanHtml(item.title),
-        summary: item.description ? cleanHtml(item.description) : "",
-        url: item.link,
-      }));
+      markSourceSeen(seenSources, coverage.source, coverage.url);
+      otherCoverages.push(coverage);
+      otherArticles.push(item);
+
+      if (otherCoverages.length >= this.config.maxOtherSources) {
+        break;
+      }
     }
 
     const originalCoverage: SourceCoverage = {
@@ -437,6 +979,7 @@ export class BiasComparisonService {
       headline: params.title,
       summary: "",
       url: params.url,
+      detectedBias: emptyBiasAnalysis(),
     };
 
     if (otherCoverages.length === 0) {
@@ -445,43 +988,69 @@ export class BiasComparisonService {
       return { ...singleSourceResponse, cached: false };
     }
 
+    const comparisonInputs = await this.buildComparisonInputs(
+      params,
+      otherCoverages,
+      otherArticles,
+    );
+
     const fallbackDraft = buildFallbackComparison(
       params,
-      otherArticles,
+      comparisonInputs.originalArticle,
+      comparisonInputs.otherSources,
       otherCoverages,
       this.config,
     );
     fallbackDraft.originalSource.url = params.url;
     originalCoverage.summary = fallbackDraft.originalSource.summary;
+    originalCoverage.detectedBias =
+      fallbackDraft.originalSource.detectedBias
+      ?? fallbackBiasAnalysis({
+        ...originalCoverage,
+        evidence: comparisonInputs.originalArticle.evidence,
+      });
+
+    for (let i = 0; i < otherCoverages.length; i++) {
+      otherCoverages[i].summary =
+        fallbackDraft.otherSources[i]?.summary
+        ?? buildFallbackSourceSummary(comparisonInputs.otherSources[i] ?? otherCoverages[i]);
+      otherCoverages[i].detectedBias =
+        fallbackDraft.otherSources[i]?.detectedBias
+        ?? fallbackBiasAnalysis({
+          ...otherCoverages[i],
+          evidence: comparisonInputs.otherSources[i]?.evidence ?? [],
+        });
+    }
 
     try {
-      const aiResult = await this.aiProvider.generateComparison({
-        originalArticle: {
-          source: params.source,
-          headline: params.title,
-          description: params.description ?? null,
-        },
-        otherSources: otherCoverages.map((coverage) => {
-          const matchingArticle = otherArticles.find((article) => article.link === coverage.url);
-          const description = matchingArticle?.description
-            ? cleanHtml(matchingArticle.description)
-            : coverage.summary || null;
-
-          return {
-            source: coverage.source,
-            headline: coverage.headline,
-            description,
-          };
-        }),
-      });
+      const aiResult = await this.aiProvider.generateComparison(comparisonInputs);
 
       originalCoverage.summary =
         aiResult.originalSummary || fallbackDraft.originalSource.summary;
+      originalCoverage.detectedBias =
+        aiResult.originalBias.emphasizedDetails.length > 0 || aiResult.originalBias.overallOpinion.trim()
+          ? aiResult.originalBias
+          : fallbackDraft.originalSource.detectedBias ?? fallbackBiasAnalysis({
+            ...originalCoverage,
+            evidence: comparisonInputs.originalArticle.evidence,
+          });
 
       for (let i = 0; i < otherCoverages.length; i++) {
         otherCoverages[i].summary =
           aiResult.sourceSummaries[i]
-          ?? `Coverage from ${otherCoverages[i].source} centers on "${otherCoverages[i].headline}".`;
+          ?? fallbackDraft.otherSources[i]?.summary
+          ?? buildFallbackSourceSummary(comparisonInputs.otherSources[i] ?? otherCoverages[i]);
+        otherCoverages[i].detectedBias =
+          aiResult.sourceBiases[i] && (
+            aiResult.sourceBiases[i].emphasizedDetails.length > 0
+            || aiResult.sourceBiases[i].overallOpinion.trim()
+          )
+            ? aiResult.sourceBiases[i]
+            : fallbackDraft.otherSources[i]?.detectedBias
+              ?? fallbackBiasAnalysis({
+                ...otherCoverages[i],
+                evidence: comparisonInputs.otherSources[i]?.evidence ?? [],
+              });
       }
 
       const response: BiasComparisonData = {
@@ -533,13 +1102,5 @@ export class BiasComparisonService {
 
     await this.cacheStore.setJson(cacheKey, fallback, this.config.cacheTtlSeconds);
     return { ...fallback, cached: false };
-  }
-}
-
-function safeHostname(url: string): string {
-  try {
-    return new URL(url).hostname.replace("www.", "");
-  } catch {
-    return url;
   }
 }

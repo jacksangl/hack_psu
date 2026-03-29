@@ -159,6 +159,8 @@ export class OpenAIBriefProvider implements AiProvider {
       bulletSummary: [],
       originalSummary: "",
       sourceSummaries: params.otherSources.map(() => ""),
+      originalBias: { emphasizedDetails: [], overallOpinion: "" },
+      sourceBiases: params.otherSources.map(() => ({ emphasizedDetails: [], overallOpinion: "" })),
       keyDifferences: [],
       keyTopics: [],
       consensus: [],

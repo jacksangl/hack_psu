@@ -63,11 +63,17 @@ export async function fetchGlobalSentiment(): Promise<SentimentResponse> {
 
 // ---- Trending news ----
 
+export interface SourceBiasAnalysis {
+  emphasizedDetails: string[];
+  overallOpinion: string;
+}
+
 export interface SourceCoverage {
   source: string;
   headline: string;
   summary: string;
   url: string;
+  detectedBias?: SourceBiasAnalysis;
 }
 
 export interface TrendingArticle {

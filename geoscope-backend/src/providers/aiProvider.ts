@@ -1,5 +1,6 @@
 import type { Article } from "../types/article";
 import type { BriefDraft } from "../types/brief";
+import type { SourceBiasAnalysis } from "../types/biasComparison";
 
 export interface GenerateBriefParams {
   countryCode: string;
@@ -12,11 +13,13 @@ export interface GenerateComparisonParams {
     source: string;
     headline: string;
     description: string | null;
+    evidence: string[];
   };
   otherSources: Array<{
     source: string;
     headline: string;
     description: string | null;
+    evidence: string[];
   }>;
 }
 
@@ -25,6 +28,8 @@ export interface ComparisonDraft {
   bulletSummary: string[];
   originalSummary: string;
   sourceSummaries: string[];
+  originalBias: SourceBiasAnalysis;
+  sourceBiases: SourceBiasAnalysis[];
   keyDifferences: string[];
   keyTopics: string[];
   consensus: string[];

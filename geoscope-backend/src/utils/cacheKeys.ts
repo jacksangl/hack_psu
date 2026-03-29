@@ -9,5 +9,5 @@ export const cacheKeys = {
   news: (countryCode: string, query: unknown) => `news:${countryCode}:${hashValue(query)}`,
   sentimentGlobal: () => "sentiment:global",
   trending: (category?: string) => `trending:v2:${category ?? "all"}`,
-  biasComparison: (urlHash: string) => `bias:v2:${urlHash}`,
+  biasComparison: (urlHash: string) => `bias:v6:${urlHash}`,
 };
