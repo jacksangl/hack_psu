@@ -4,7 +4,7 @@ import { Html } from "@react-three/drei";
 import { useGlobeStore } from "../../../store/globeStore";
 import { COUNTRIES } from "../../../utils/countryData";
 import { latLngToVector3 } from "../../../utils/geoHelpers";
-import { useGlobeVisibility } from "../../../hooks/useGlobeVisibility";
+import { useGlobeVisibility } from "../../hooks/useGlobeVisibility";
 
 function FlagMarker({
   code,

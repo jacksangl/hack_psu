@@ -1,8 +1,8 @@
 import { useRef, useCallback } from "react";
 import { useThree, useFrame } from "@react-three/fiber";
 import * as THREE from "three";
-import { centroidToCameraPosition } from "../utils/geoHelpers";
-import { useGlobeStore } from "../store/globeStore";
+import { useGlobeStore } from "../../store/globeStore";
+import { centroidToCameraPosition } from "../../utils/geoHelpers";
 
 interface FlyToState {
   active: boolean;

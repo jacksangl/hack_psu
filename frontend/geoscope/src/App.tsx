@@ -1,10 +1,11 @@
 import { useEffect } from "react";
-import { GlobeScene } from "./components/gui/globe/GlobeScene";
-import { CountryPanel } from "./components/gui/ui/CountryPanel";
-import { TopBar } from "./components/gui/layout/TopBar";
-import { BottomBar } from "./components/gui/layout/BottomBar";
-import { LoadingOverlay } from "./components/gui/ui/LoadingOverlay";
-import { useGlobalSentiment } from "./hooks/useGlobalSentiment";
+import { useGlobalSentiment } from "./data/news/hooks/useGlobalSentiment";
+import { GalaxyBackground } from "./ui/gui/background/GalaxyBackground";
+import { GlobeScene } from "./ui/gui/globe/GlobeScene";
+import { BottomBar } from "./ui/gui/layout/BottomBar";
+import { TopBar } from "./ui/gui/layout/TopBar";
+import { CountryPanel } from "./ui/gui/ui/CountryPanel";
+import { LoadingOverlay } from "./ui/gui/ui/LoadingOverlay";
 
 function SentimentLoader() {
   useGlobalSentiment();
@@ -17,7 +18,8 @@ export default function App() {
   }, []);
 
   return (
-    <div className="w-full h-full relative">
+    <div className="w-full h-full relative bg-[#030712]">
+      <GalaxyBackground />
       <LoadingOverlay />
       <SentimentLoader />
       <GlobeScene />

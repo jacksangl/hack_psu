@@ -1,11 +1,10 @@
 import { create } from "zustand";
 import type {
-  NewsResponse,
   BriefResponse,
-  SentimentResponse,
+  NewsResponse,
   SentimentEntry,
   NewsCategory,
-} from "../api/mockData";
+} from "../data/news/types";
 
 interface GlobeState {
   selectedCountry: string | null;
@@ -26,7 +25,7 @@ interface GlobeState {
   setActiveDate: (date: Date) => void;
   toggleConnectDots: () => void;
   setSelectedCategory: (category: NewsCategory | null) => void;
-  setGlobalSentiment: (data: SentimentResponse) => void;
+  setGlobalSentiment: (data: Record<string, SentimentEntry>) => void;
   setCountryNews: (code: string, data: NewsResponse) => void;
   setCountryBrief: (code: string, data: BriefResponse) => void;
   setLoading: (loading: boolean) => void;
@@ -54,13 +53,7 @@ export const useGlobeStore = create<GlobeState>((set) => ({
   toggleConnectDots: () =>
     set((state) => ({ connectDotsMode: !state.connectDotsMode })),
   setSelectedCategory: (category) => set({ selectedCategory: category }),
-  setGlobalSentiment: (data) => {
-    const map: Record<string, SentimentEntry> = {};
-    for (const entry of data.countries) {
-      map[entry.countryCode] = entry;
-    }
-    set({ globalSentiment: map });
-  },
+  setGlobalSentiment: (data) => set({ globalSentiment: data }),
   setCountryNews: (code, data) =>
     set((state) => ({
       countryNews: { ...state.countryNews, [code]: data },

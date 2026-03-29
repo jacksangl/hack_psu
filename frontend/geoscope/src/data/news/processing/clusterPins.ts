@@ -1,4 +1,4 @@
-import type { Sentiment } from "./sentimentColors";
+import type { Sentiment } from "../../../utils/sentimentColors";
 
 export interface PinData {
   id: string;

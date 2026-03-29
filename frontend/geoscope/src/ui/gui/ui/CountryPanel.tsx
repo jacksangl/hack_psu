@@ -1,8 +1,8 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { useGlobeStore } from "../../../store/globeStore";
-import { useCountryData } from "../../../hooks/useCountryData";
-import { useVoiceBrief } from "../../../hooks/useVoiceBrief";
+import { useCountryData } from "../../../data/news/hooks/useCountryData";
 import { getCountryByCode } from "../../../utils/countryData";
+import { useVoiceBrief } from "../../hooks/useVoiceBrief";
 import { SentimentBadge } from "./SentimentBadge";
 import { TagCloud } from "./TagCloud";
 import { ArticleCard } from "./ArticleCard";

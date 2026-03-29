@@ -1,5 +1,6 @@
 import { useMemo, memo } from "react";
 import * as THREE from "three";
+import { buildCountryHeatData } from "../../../data/news/processing/countryHeat";
 import { useGlobeStore } from "../../../store/globeStore";
 import { COUNTRIES } from "../../../utils/countryData";
 import { latLngToVector3 } from "../../../utils/geoHelpers";
@@ -8,27 +9,7 @@ import { heatToHex } from "../../../utils/heatmapColors";
 function NewsHeatmapComponent() {
   const countryNews = useGlobeStore((s) => s.countryNews);
 
-  // Calculate heat for each country
-  const heatData = useMemo(() => {
-    // Get max source count across all countries
-    let maxSources = 0;
-    const countryHeat: Record<string, { heat: number; sourceCount: number }> =
-      {};
-
-    for (const [countryCode, newsData] of Object.entries(countryNews)) {
-      const sources = new Set(newsData.articles.map((a) => a.source));
-      const sourceCount = sources.size;
-      maxSources = Math.max(maxSources, sourceCount);
-      countryHeat[countryCode] = { sourceCount, heat: 0 };
-    }
-
-    // Normalize heat to 0-1
-    for (const [, data] of Object.entries(countryHeat)) {
-      data.heat = maxSources > 0 ? data.sourceCount / maxSources : 0;
-    }
-
-    return countryHeat;
-  }, [countryNews]);
+  const heatData = useMemo(() => buildCountryHeatData(countryNews), [countryNews]);
 
   // Create rings for each country with news
   const rings = useMemo(() => {

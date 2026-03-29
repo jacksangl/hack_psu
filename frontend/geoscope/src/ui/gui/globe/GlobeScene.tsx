@@ -123,6 +123,7 @@ export function GlobeScene() {
       <Canvas
         camera={{ position: [0, 0, 6], fov: 45 }}
         gl={{
+          alpha: true,
           antialias: false,
           toneMapping: THREE.ACESFilmicToneMapping,
           toneMappingExposure: 1.5,
@@ -131,7 +132,7 @@ export function GlobeScene() {
         }}
         frameloop="always"
         dpr={Math.min(window.devicePixelRatio, 1.5)}
-        style={{ background: "#030712" }}
+        style={{ background: "transparent" }}
       >
         <Suspense fallback={null}>
           <GlobeContent />

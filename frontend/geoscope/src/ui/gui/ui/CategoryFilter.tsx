@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useGlobeStore } from "../../../store/globeStore";
-import type { NewsCategory } from "../../../api/mockData";
+import type { NewsCategory } from "../../../data/news/types";
 
 const CATEGORIES: { value: NewsCategory; label: string }[] = [
   { value: "politics", label: "Politics" },

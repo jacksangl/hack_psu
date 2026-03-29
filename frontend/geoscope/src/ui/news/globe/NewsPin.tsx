@@ -4,7 +4,7 @@ import * as THREE from "three";
 import { latLngToVector3 } from "../../../utils/geoHelpers";
 import { sentimentToHex, type Sentiment } from "../../../utils/sentimentColors";
 import { Html } from "@react-three/drei";
-import { useGlobeVisibility } from "../../../hooks/useGlobeVisibility";
+import { useGlobeVisibility } from "../../hooks/useGlobeVisibility";
 
 interface NewsPinProps {
   lat: number;
@@ -12,7 +12,6 @@ interface NewsPinProps {
   sentiment: Sentiment;
   title: string;
   url: string;
-  count?: number;
 }
 
 function NewsPinComponent({
@@ -21,7 +20,6 @@ function NewsPinComponent({
   sentiment,
   title,
   url,
-  count,
 }: NewsPinProps) {
   const groupRef = useRef<THREE.Group>(null);
   const [hovered, setHovered] = useState(false);
@@ -111,22 +109,6 @@ function NewsPinComponent({
               depthWrite={false}
             />
           </mesh>
-
-          {/* Cluster count badge */}
-          {count && count > 1 && (
-            <Html
-              position={[0, 0.1, 0]}
-              center
-              style={{ pointerEvents: "none" }}
-            >
-              <div
-                className="px-1.5 py-0.5 rounded-full text-[10px] font-bold text-white"
-                style={{ backgroundColor: color, whiteSpace: "nowrap" }}
-              >
-                {count}
-              </div>
-            </Html>
-          )}
 
           {/* Tooltip */}
           {hovered && (

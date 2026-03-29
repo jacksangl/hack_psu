@@ -4,7 +4,7 @@ import { useGlobeStore } from "../../../store/globeStore";
 import { getCountryByCode } from "../../../utils/countryData";
 import { latLngToVector3 } from "../../../utils/geoHelpers";
 import { sentimentToHex, type Sentiment } from "../../../utils/sentimentColors";
-import { useGlobeVisibility } from "../../../hooks/useGlobeVisibility";
+import { useGlobeVisibility } from "../../hooks/useGlobeVisibility";
 
 const SentimentDot = memo(function SentimentDot({
   lat,

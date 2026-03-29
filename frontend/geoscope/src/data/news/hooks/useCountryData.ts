@@ -1,6 +1,6 @@
 import { useEffect } from "react";
-import { useGlobeStore } from "../store/globeStore";
-import { fetchCountryNews, fetchCountryBrief } from "../api/client";
+import { useGlobeStore } from "../../../store/globeStore";
+import { fetchCountryBrief, fetchCountryNews } from "../client";
 
 export function useCountryData(countryCode: string | null) {
   const setCountryNews = useGlobeStore((s) => s.setCountryNews);

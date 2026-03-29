@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { useGlobeStore } from "../../../store/globeStore";
 import { getCountryByCode } from "../../../utils/countryData";
-import { useCameraFlyTo } from "../../../hooks/useCameraFlyTo";
+import { useCameraFlyTo } from "../../hooks/useCameraFlyTo";
 
 // Must match CountryPanel's max-w-md (448px)
 const PANEL_WIDTH = 448;
