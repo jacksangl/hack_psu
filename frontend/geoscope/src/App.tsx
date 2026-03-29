@@ -6,6 +6,7 @@ import { GlobeScene } from "./ui/gui/globe/GlobeScene";
 import { BottomBar } from "./ui/gui/layout/BottomBar";
 import { TopBar } from "./ui/gui/layout/TopBar";
 import { CountryPanel } from "./ui/gui/ui/CountryPanel";
+import { GlobeTooltip } from "./ui/gui/ui/GlobeTooltip";
 import { LoadingOverlay } from "./ui/gui/ui/LoadingOverlay";
 import { NewsHomePage } from "./pages/NewsHomePage";
 import { ArticleComparisonPage } from "./pages/ArticleComparisonPage";
@@ -22,6 +23,7 @@ function GlobeView() {
       <LoadingOverlay />
       <SentimentLoader />
       <GlobeScene />
+      <GlobeTooltip />
       <BottomBar />
       <CountryPanel />
     </div>

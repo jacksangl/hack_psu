@@ -1,31 +1,57 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import * as topojson from "topojson-client";
 import type { Geometry } from "geojson";
 import type { Topology } from "topojson-specification";
 import { useCountryVisualHeatData } from "../../../data/news/hooks/useCountryVisualHeatData";
+import { computeHeatmapSignature } from "../../../data/news/processing/computeHeatmapSignature";
+import { selectVisibleCountries } from "../../../data/news/processing/selectVisibleCountries";
 import { useGlobeStore } from "../../../store/globeStore";
 import { COUNTRIES } from "../../../utils/countryData";
 import { heatToHex } from "../../../utils/heatmapColors";
+import { NEWS_GLOBE_CONFIG } from "./globeConfig";
 
-const TOPO_URL = "https://unpkg.com/world-atlas@2/countries-50m.json";
-const TEX_W = 4096;
-const TEX_H = 2048;
-const OVERLAY_RADIUS = 2.002;
-const STRIPE_SPACING = 28;
-const STRIPE_LINE_WIDTH = 4;
-const STRIPE_SLOPE = 0.68;
-
-// ISO 3166-1 numeric -> alpha-2 (unpadded, matching topojson-client output)
 const NUM_TO_ALPHA2: Record<string, string> = {
-  "840": "US", "76": "BR", "356": "IN", "276": "DE", "156": "CN",
-  "566": "NG", "804": "UA", "36": "AU", "826": "GB", "250": "FR",
-  "392": "JP", "410": "KR", "124": "CA", "484": "MX", "710": "ZA",
-  "682": "SA", "643": "RU", "380": "IT", "724": "ES", "792": "TR",
-  "616": "PL", "32": "AR", "818": "EG", "764": "TH", "360": "ID",
-  "586": "PK", "50": "BD", "608": "PH", "704": "VN", "231": "ET",
-  "404": "KE", "170": "CO", "752": "SE", "578": "NO", "376": "IL",
-  "152": "CL", "604": "PE", "300": "GR", "554": "NZ", "364": "IR",
+  "840": "US",
+  "76": "BR",
+  "356": "IN",
+  "276": "DE",
+  "156": "CN",
+  "566": "NG",
+  "804": "UA",
+  "36": "AU",
+  "826": "GB",
+  "250": "FR",
+  "392": "JP",
+  "410": "KR",
+  "124": "CA",
+  "484": "MX",
+  "710": "ZA",
+  "682": "SA",
+  "643": "RU",
+  "380": "IT",
+  "724": "ES",
+  "792": "TR",
+  "616": "PL",
+  "32": "AR",
+  "818": "EG",
+  "764": "TH",
+  "360": "ID",
+  "586": "PK",
+  "50": "BD",
+  "608": "PH",
+  "704": "VN",
+  "231": "ET",
+  "404": "KE",
+  "170": "CO",
+  "752": "SE",
+  "578": "NO",
+  "376": "IL",
+  "152": "CL",
+  "604": "PE",
+  "300": "GR",
+  "554": "NZ",
+  "364": "IR",
   "368": "IQ",
 };
 
@@ -100,7 +126,10 @@ function resolveFeatureCountryCode(feature: {
 }
 
 function toCanvas(lng: number, lat: number): [number, number] {
-  return [((lng + 180) / 360) * TEX_W, ((90 - lat) / 180) * TEX_H];
+  return [
+    ((lng + 180) / 360) * NEWS_GLOBE_CONFIG.heatmap.textureWidth,
+    ((90 - lat) / 180) * NEWS_GLOBE_CONFIG.heatmap.textureHeight,
+  ];
 }
 
 function traceRing(ctx: CanvasRenderingContext2D, ring: number[][]) {
@@ -130,12 +159,6 @@ function fillGeometry(ctx: CanvasRenderingContext2D, geom: Geometry) {
   ctx.fill();
 }
 
-function strokeGeometry(ctx: CanvasRenderingContext2D, geom: Geometry) {
-  ctx.beginPath();
-  traceGeometryPath(ctx, geom);
-  ctx.stroke();
-}
-
 function drawStripedGeometry(
   ctx: CanvasRenderingContext2D,
   geom: Geometry,
@@ -148,26 +171,110 @@ function drawStripedGeometry(
   ctx.clip();
   ctx.strokeStyle = strokeStyle;
   ctx.globalAlpha = alpha;
-  ctx.lineWidth = STRIPE_LINE_WIDTH;
+  ctx.lineWidth = NEWS_GLOBE_CONFIG.heatmap.stripeLineWidth;
   ctx.lineCap = "round";
 
-  for (let x = -TEX_H; x <= TEX_W + TEX_H; x += STRIPE_SPACING) {
+  const { textureHeight, textureWidth, stripeSlope, stripeSpacing } =
+    NEWS_GLOBE_CONFIG.heatmap;
+  for (
+    let x = -textureHeight;
+    x <= textureWidth + textureHeight;
+    x += stripeSpacing
+  ) {
     ctx.beginPath();
     ctx.moveTo(x, 0);
-    ctx.lineTo(x + TEX_H * STRIPE_SLOPE, TEX_H);
+    ctx.lineTo(x + textureHeight * stripeSlope, textureHeight);
     ctx.stroke();
   }
 
   ctx.restore();
 }
 
+function buildBaseHeatmapTexture(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  features: any[],
+  heatByCountry: ReturnType<typeof useCountryVisualHeatData>,
+  visibleCountryCodes: Set<string>
+) {
+  const canvas = document.createElement("canvas");
+  canvas.width = NEWS_GLOBE_CONFIG.heatmap.textureWidth;
+  canvas.height = NEWS_GLOBE_CONFIG.heatmap.textureHeight;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+
+  const { textureWidth, textureHeight } = NEWS_GLOBE_CONFIG.heatmap;
+  ctx.clearRect(0, 0, textureWidth, textureHeight);
+
+  for (const feature of features) {
+    const countryCode = resolveFeatureCountryCode(feature);
+    if (!countryCode || !visibleCountryCodes.has(countryCode)) {
+      continue;
+    }
+
+    const entry = heatByCountry[countryCode];
+    if (!entry) {
+      continue;
+    }
+
+    const color = heatToHex(entry.heat);
+    const stripeColor = new THREE.Color(color)
+      .lerp(new THREE.Color("#f8fafc"), 0.22)
+      .getStyle();
+
+    ctx.fillStyle = color;
+    ctx.globalAlpha = 0.08 + entry.heat * 0.24;
+    fillGeometry(ctx, feature.geometry);
+    drawStripedGeometry(
+      ctx,
+      feature.geometry,
+      stripeColor,
+      0.06 + entry.heat * 0.08
+    );
+  }
+
+  const poleFadePx = 180;
+  ctx.globalCompositeOperation = "destination-out";
+  ctx.globalAlpha = 1;
+
+  const northGradient = ctx.createLinearGradient(0, 0, 0, poleFadePx);
+  northGradient.addColorStop(0, "rgba(0,0,0,1)");
+  northGradient.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = northGradient;
+  ctx.fillRect(0, 0, textureWidth, poleFadePx);
+
+  const southGradient = ctx.createLinearGradient(
+    0,
+    textureHeight - poleFadePx,
+    0,
+    textureHeight
+  );
+  southGradient.addColorStop(0, "rgba(0,0,0,0)");
+  southGradient.addColorStop(1, "rgba(0,0,0,1)");
+  ctx.fillStyle = southGradient;
+  ctx.fillRect(0, textureHeight - poleFadePx, textureWidth, poleFadePx);
+
+  ctx.globalCompositeOperation = "source-over";
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}
+
 export function CountryHeatmap() {
   const [topoData, setTopoData] = useState<Topology | null>(null);
-  const selectedCountry = useGlobeStore((s) => s.selectedCountry);
+  const [texture, setTexture] = useState<THREE.CanvasTexture | null>(null);
   const heatData = useCountryVisualHeatData();
+  const selectedCategory = useGlobeStore((state) => state.selectedCategory);
+  const heatmapDirty = useGlobeStore((state) => state.heatmapDirty);
+  const isInteracting = useGlobeStore(
+    (state) => state.isInteracting || state.isCameraAnimating
+  );
+  const setHeatmapDirty = useGlobeStore((state) => state.setHeatmapDirty);
+  const lastAppliedSignatureRef = useRef("");
+  const textureRef = useRef<THREE.CanvasTexture | null>(null);
 
   useEffect(() => {
-    fetch(TOPO_URL)
+    fetch(NEWS_GLOBE_CONFIG.heatmap.topoUrl)
       .then((response) => response.json())
       .then((data: Topology) => setTopoData(data))
       .catch(() => {});
@@ -184,107 +291,89 @@ export function CountryHeatmap() {
     return featureCollection.features;
   }, [topoData]);
 
-  const texture = useMemo(() => {
-    if (!features) return null;
+  const visibleCountries = useMemo(
+    () =>
+      selectVisibleCountries(heatData, {
+        limit: NEWS_GLOBE_CONFIG.visibleCountryLimit,
+      }),
+    [heatData]
+  );
 
-    const canvas = document.createElement("canvas");
-    canvas.width = TEX_W;
-    canvas.height = TEX_H;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return null;
+  const heatmapSignature = useMemo(
+    () =>
+      computeHeatmapSignature(
+        visibleCountries,
+        selectedCategory,
+        NEWS_GLOBE_CONFIG.heatmap.heatBucketCount
+      ),
+    [selectedCategory, visibleCountries]
+  );
 
-    ctx.clearRect(0, 0, TEX_W, TEX_H);
-
-    for (const feature of features) {
-      const countryCode = resolveFeatureCountryCode(feature);
-      if (!countryCode) continue;
-
-      const entry = heatData[countryCode];
-      if (!entry) continue;
-
-      if (countryCode === selectedCountry) {
-        continue;
-      }
-
-      const color = heatToHex(entry.heat);
-      const stripeColor = new THREE.Color(color)
-        .lerp(new THREE.Color("#f8fafc"), 0.16)
-        .getStyle();
-
-      ctx.fillStyle = color;
-      ctx.globalAlpha = 0.12 + entry.heat * 0.22;
-      fillGeometry(ctx, feature.geometry);
-      drawStripedGeometry(
-        ctx,
-        feature.geometry,
-        stripeColor,
-        0.12 + entry.heat * 0.08
-      );
+  useEffect(() => {
+    if (!features) {
+      return;
     }
 
-    if (selectedCountry) {
-      const selectedFeature = features.find(
-        (feature: any) => resolveFeatureCountryCode(feature) === selectedCountry
-      );
-      const selectedHeat = heatData[selectedCountry];
-
-      if (selectedFeature && selectedHeat) {
-        const color = heatToHex(selectedHeat.heat);
-        const stripeColor = new THREE.Color(color)
-          .lerp(new THREE.Color("#ffffff"), 0.22)
-          .getStyle();
-
-        ctx.fillStyle = color;
-        ctx.globalAlpha = 0.2 + selectedHeat.heat * 0.24;
-        fillGeometry(ctx, selectedFeature.geometry);
-        drawStripedGeometry(
-          ctx,
-          selectedFeature.geometry,
-          stripeColor,
-          0.18 + selectedHeat.heat * 0.08
-        );
-
-        ctx.strokeStyle = "#e2e8f0";
-        ctx.lineWidth = 1.6;
-        ctx.globalAlpha = 0.62;
-        strokeGeometry(ctx, selectedFeature.geometry);
-
-        ctx.strokeStyle = color;
-        ctx.lineWidth = 4;
-        ctx.globalAlpha = 0.22;
-        strokeGeometry(ctx, selectedFeature.geometry);
-      }
+    if (!heatmapDirty && textureRef.current) {
+      return;
     }
 
-    // Fade out polar caps to prevent equirectangular stripe convergence artifacts
-    const POLE_FADE_PX = 260;
-    ctx.globalCompositeOperation = "destination-out";
-    ctx.globalAlpha = 1;
+    if (heatmapSignature === lastAppliedSignatureRef.current) {
+      if (heatmapDirty) {
+        setHeatmapDirty(false);
+      }
+      return;
+    }
 
-    const northGrad = ctx.createLinearGradient(0, 0, 0, POLE_FADE_PX);
-    northGrad.addColorStop(0, "rgba(0,0,0,1)");
-    northGrad.addColorStop(1, "rgba(0,0,0,0)");
-    ctx.fillStyle = northGrad;
-    ctx.fillRect(0, 0, TEX_W, POLE_FADE_PX);
+    if (isInteracting) {
+      return;
+    }
 
-    const southGrad = ctx.createLinearGradient(0, TEX_H - POLE_FADE_PX, 0, TEX_H);
-    southGrad.addColorStop(0, "rgba(0,0,0,0)");
-    southGrad.addColorStop(1, "rgba(0,0,0,1)");
-    ctx.fillStyle = southGrad;
-    ctx.fillRect(0, TEX_H - POLE_FADE_PX, TEX_W, POLE_FADE_PX);
+    const timeout = window.setTimeout(() => {
+      const nextTexture = buildBaseHeatmapTexture(
+        features,
+        heatData,
+        new Set(visibleCountries.map((entry) => entry.countryCode))
+      );
 
-    ctx.globalCompositeOperation = "source-over";
+      if (!nextTexture) {
+        return;
+      }
 
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.colorSpace = THREE.SRGBColorSpace;
-    return texture;
-  }, [features, heatData, selectedCountry]);
+      const previousTexture = textureRef.current;
+      textureRef.current = nextTexture;
+      lastAppliedSignatureRef.current = heatmapSignature;
+      setTexture(nextTexture);
+      setHeatmapDirty(false);
+      previousTexture?.dispose();
+    }, NEWS_GLOBE_CONFIG.heatmap.rebuildDebounceMs);
 
-  if (!texture) return null;
+    return () => {
+      window.clearTimeout(timeout);
+    };
+  }, [
+    features,
+    heatData,
+    heatmapDirty,
+    heatmapSignature,
+    isInteracting,
+    setHeatmapDirty,
+    visibleCountries,
+  ]);
+
+  useEffect(() => {
+    return () => {
+      textureRef.current?.dispose();
+    };
+  }, []);
+
+  if (!texture) {
+    return null;
+  }
 
   return (
     <mesh>
-      <sphereGeometry args={[OVERLAY_RADIUS, 64, 64]} />
+      <sphereGeometry args={[NEWS_GLOBE_CONFIG.heatmap.overlayRadius, 64, 64]} />
       <meshBasicMaterial
         map={texture}
         transparent

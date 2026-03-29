@@ -62,6 +62,11 @@ function LoadingSkeleton() {
     <div className="space-y-6 animate-pulse">
       <div className="h-8 bg-wwn-surface-high rounded w-3/4" />
       <div className="h-4 bg-wwn-surface-high rounded w-1/2" />
+      <div className="flex gap-2 mb-4">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="h-6 w-20 bg-wwn-surface-high rounded-full" />
+        ))}
+      </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {[1, 2, 3, 4].map((i) => (
           <div key={i} className="h-32 bg-wwn-surface-low rounded" />
@@ -128,7 +133,7 @@ export function ArticleComparisonPage() {
 
         {data && (
           <>
-            {/* Story title */}
+            {/* Header */}
             <header className="mb-8">
               <span className="font-data text-[10px] font-semibold uppercase tracking-[0.15em] text-wwn-primary mb-3 block">
                 Multi-Source Analysis
@@ -140,6 +145,44 @@ export function ArticleComparisonPage() {
                 Comparing coverage from {data.otherSources.length + 1} sources
               </p>
             </header>
+
+            {/* Key Topics */}
+            {data.keyTopics && data.keyTopics.length > 0 && (
+              <section className="mb-8">
+                <h3 className="font-data text-[10px] font-semibold uppercase tracking-[0.15em] text-wwn-text-variant mb-3">
+                  Key Topics
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  {data.keyTopics.map((topic, i) => (
+                    <span
+                      key={i}
+                      className="px-3 py-1 bg-wwn-primary/10 text-wwn-primary-soft font-data text-xs tracking-wide"
+                    >
+                      {topic}
+                    </span>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* Bullet summary */}
+            {data.bulletSummary && data.bulletSummary.length > 0 && (
+              <section className="mb-8">
+                <h3 className="font-data text-[10px] font-semibold uppercase tracking-[0.15em] text-wwn-text-variant mb-3">
+                  Bullet-Point Summary
+                </h3>
+                <div className="bg-wwn-surface-low ring-1 ring-wwn-surface-high p-5 space-y-3">
+                  {data.bulletSummary.map((point, i) => (
+                    <div key={i} className="flex gap-3">
+                      <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-wwn-primary-soft flex-shrink-0" />
+                      <p className="font-body text-sm text-wwn-on-surface leading-relaxed">
+                        {point}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
 
             {/* Original source */}
             <section className="mb-8">
@@ -163,11 +206,76 @@ export function ArticleComparisonPage() {
               </section>
             )}
 
-            {/* Key differences */}
+            {/* Where sources agree */}
+            {data.consensus && data.consensus.length > 0 && (
+              <section className="mb-8">
+                <h3 className="font-data text-[10px] font-semibold uppercase tracking-[0.15em] text-wwn-text-variant mb-3">
+                  Where Sources Agree
+                </h3>
+                <div className="bg-emerald-500/5 ring-1 ring-emerald-500/15 p-5 space-y-3">
+                  {data.consensus.map((point, i) => (
+                    <div key={i} className="flex gap-3">
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 16 16"
+                        fill="none"
+                        className="flex-shrink-0 mt-0.5 text-emerald-400"
+                      >
+                        <path
+                          d="M3 8.5L6.5 12L13 4"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                      <p className="font-body text-sm text-wwn-on-surface leading-relaxed">
+                        {point}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* Where sources differ */}
+            {data.disagreements && data.disagreements.length > 0 && (
+              <section className="mb-8">
+                <h3 className="font-data text-[10px] font-semibold uppercase tracking-[0.15em] text-wwn-text-variant mb-3">
+                  Where Sources Differ
+                </h3>
+                <div className="bg-amber-500/5 ring-1 ring-amber-500/15 p-5 space-y-3">
+                  {data.disagreements.map((point, i) => (
+                    <div key={i} className="flex gap-3">
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 16 16"
+                        fill="none"
+                        className="flex-shrink-0 mt-0.5 text-amber-400"
+                      >
+                        <path
+                          d="M8 3v6M8 12v.5"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                      <p className="font-body text-sm text-wwn-on-surface leading-relaxed">
+                        {point}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* Key differences (legacy field, still useful) */}
             {data.keyDifferences.length > 0 && (
               <section className="mb-8">
                 <h3 className="font-data text-[10px] font-semibold uppercase tracking-[0.15em] text-wwn-text-variant mb-3">
-                  Key Differences
+                  Detailed Differences
                 </h3>
                 <div className="bg-wwn-surface-low p-5 space-y-3">
                   {data.keyDifferences.map((diff, i) => (

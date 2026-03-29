@@ -46,6 +46,7 @@ export interface SentimentEntry {
   countryCode: string;
   sentiment: Sentiment;
   sentimentScore: number;
+  articleCount: number;
 }
 
 export interface SentimentResponse {

@@ -86,6 +86,7 @@ export class TrendingService {
           ? new Date(item.pubDate).toISOString()
           : new Date().toISOString(),
         description,
+        imageUrl: item.imageUrl,
         category: primaryCategory(topics),
       };
     });

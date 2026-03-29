@@ -1,4 +1,4 @@
-import { Suspense, useCallback, useRef } from "react";
+import { Suspense, useCallback, useEffect, useRef } from "react";
 import { Canvas, useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
@@ -19,10 +19,24 @@ function GlobeContent() {
   const selectCountry = useGlobeStore((s) => s.selectCountry);
   const clearSelectedCountry = useGlobeStore((s) => s.clearSelectedCountry);
   const isCameraAnimating = useGlobeStore((s) => s.isCameraAnimating);
+  const clearHoveredItem = useGlobeStore((s) => s.clearHoveredItem);
+  const setIsInteracting = useGlobeStore((s) => s.setIsInteracting);
 
   const globeGroupRef = useRef<THREE.Group>(null);
   const earthMeshRef = useRef<THREE.Group>(null);
+  const orbitingRef = useRef(false);
   const { camera } = useThree();
+
+  useEffect(() => {
+    if (isCameraAnimating) {
+      setIsInteracting(true);
+      return;
+    }
+
+    if (!orbitingRef.current) {
+      setIsInteracting(false);
+    }
+  }, [isCameraAnimating, setIsInteracting]);
 
   useFrame(() => {
     if (!selectedCountry && globeGroupRef.current) {
@@ -79,8 +93,10 @@ function GlobeContent() {
       } else {
         clearSelectedCountry();
       }
+
+      clearHoveredItem();
     },
-    [selectedCountry, selectCountry, clearSelectedCountry, camera]
+    [selectedCountry, selectCountry, clearSelectedCountry, clearHoveredItem, camera]
   );
 
   return (
@@ -111,6 +127,16 @@ function GlobeContent() {
           minDistance={2.5}
           maxDistance={10}
           enablePan={false}
+          onStart={() => {
+            orbitingRef.current = true;
+            setIsInteracting(true);
+          }}
+          onEnd={() => {
+            orbitingRef.current = false;
+            if (!isCameraAnimating) {
+              setIsInteracting(false);
+            }
+          }}
         />
       )}
     </>

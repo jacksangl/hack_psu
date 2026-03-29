@@ -156,9 +156,13 @@ export class OpenAIBriefProvider implements AiProvider {
     // Fallback — OpenAI comparison not implemented yet
     return {
       storyTitle: params.originalTitle,
+      bulletSummary: [],
       originalSummary: "",
       sourceSummaries: params.otherSources.map(() => ""),
       keyDifferences: [],
+      keyTopics: [],
+      consensus: [],
+      disagreements: [],
     };
   }
 }
