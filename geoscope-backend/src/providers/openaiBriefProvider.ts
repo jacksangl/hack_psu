@@ -1,6 +1,6 @@
 import { briefDraftSchema } from "../schemas/briefSchemas";
 import type { BriefDraft } from "../types/brief";
-import type { AiProvider, GenerateBriefParams } from "./aiProvider";
+import type { AiProvider, ComparisonDraft, GenerateBriefParams, GenerateComparisonParams } from "./aiProvider";
 import {
   buildBriefingPacket,
   buildFallbackBrief,
@@ -150,5 +150,15 @@ export class OpenAIBriefProvider implements AiProvider {
     } catch {
       return buildFallbackBrief(params);
     }
+  }
+
+  async generateComparison(params: GenerateComparisonParams): Promise<ComparisonDraft> {
+    // Fallback — OpenAI comparison not implemented yet
+    return {
+      storyTitle: params.originalTitle,
+      originalSummary: "",
+      sourceSummaries: params.otherSources.map(() => ""),
+      keyDifferences: [],
+    };
   }
 }

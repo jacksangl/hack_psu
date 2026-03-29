@@ -73,7 +73,7 @@ const COUNTRY_REGION: Record<string, string> = {
   TR: "middle-east", AE: "middle-east", YE: "middle-east",
 };
 
-interface RssItem {
+export interface RssItem {
   title: string;
   link: string;
   source: string;
@@ -110,7 +110,7 @@ function parseRssItems(xml: string): RssItem[] {
   return items;
 }
 
-async function fetchRss(url: string): Promise<RssItem[]> {
+export async function fetchRss(url: string): Promise<RssItem[]> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
 
@@ -149,7 +149,7 @@ const GLOBAL_CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 
 const regionalFeedCache = new Map<string, { items: RssItem[]; time: number }>();
 
-async function getGlobalFeedItems(): Promise<RssItem[]> {
+export async function getGlobalFeedItems(): Promise<RssItem[]> {
   if (globalFeedCache && Date.now() - globalFeedCacheTime < GLOBAL_CACHE_TTL_MS) {
     return globalFeedCache;
   }
@@ -376,6 +376,6 @@ export class RssScraperProvider implements NewsProvider {
 }
 
 /** Strip HTML tags from text (RSS descriptions sometimes contain markup). */
-function cleanHtml(text: string): string {
+export function cleanHtml(text: string): string {
   return text.replace(/<[^>]*>/g, "").trim();
 }

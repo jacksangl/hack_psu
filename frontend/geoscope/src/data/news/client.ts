@@ -60,3 +60,57 @@ export async function fetchGlobalSentiment(): Promise<SentimentResponse> {
     return getMockGlobalSentiment();
   }
 }
+
+// ---- Trending news ----
+
+export interface TrendingArticle {
+  id: string;
+  title: string;
+  source: string;
+  url: string;
+  publishedAt: string;
+  description: string | null;
+  category: string;
+}
+
+export interface TrendingResponse {
+  articles: TrendingArticle[];
+  total: number;
+  updatedAt: string;
+  cached: boolean;
+}
+
+export async function fetchTrendingNews(
+  category?: string
+): Promise<TrendingResponse> {
+  const params = category ? `?category=${encodeURIComponent(category)}` : "";
+  const raw = await fetchJson(`/api/news/trending${params}`);
+  return raw as TrendingResponse;
+}
+
+// ---- Bias comparison ----
+
+export interface SourceCoverage {
+  source: string;
+  headline: string;
+  summary: string;
+  url: string;
+}
+
+export interface BiasComparisonResponse {
+  storyTitle: string;
+  originalSource: SourceCoverage;
+  otherSources: SourceCoverage[];
+  keyDifferences: string[];
+  cached: boolean;
+}
+
+export async function fetchBiasComparison(
+  title: string,
+  source: string,
+  url: string
+): Promise<BiasComparisonResponse> {
+  const params = new URLSearchParams({ title, source, url });
+  const raw = await fetchJson(`/api/article/compare?${params.toString()}`);
+  return raw as BiasComparisonResponse;
+}

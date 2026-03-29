@@ -18,9 +18,22 @@ const config: Config = {
           red: "#ef4444",
           gray: "#64748b",
         },
+        wwn: {
+          bg: "#10141a",
+          "surface-lowest": "#0a0e14",
+          "surface-low": "#181c22",
+          "surface-high": "#262a31",
+          primary: "#00e5ff",
+          "primary-soft": "#c3f5ff",
+          "on-surface": "#dfe2eb",
+          "text-variant": "#bac9cc",
+        },
       },
       fontFamily: {
         sans: ["Inter", "SF Pro Display", "system-ui", "sans-serif"],
+        serif: ["Newsreader", "Georgia", "serif"],
+        body: ["Manrope", "Inter", "sans-serif"],
+        data: ["Space Grotesk", "monospace"],
       },
       transitionDuration: {
         "400": "400ms",
