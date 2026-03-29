@@ -1,0 +1,26 @@
+export const NEWS_GLOBE_CONFIG = {
+  connectDotsCountryLimit: 10,
+  prefetchCountryLimit: 195,
+  prefetchConcurrency: 4,
+  visibleCountryLimit: 195,
+  heatmap: {
+    topoUrl: "https://unpkg.com/world-atlas@2/countries-50m.json",
+    textureWidth: 2048,
+    textureHeight: 1024,
+    overlayRadius: 2.002,
+    stripeSpacing: 44,
+    stripeLineWidth: 3,
+    stripeSlope: 0.68,
+    rebuildDebounceMs: 180,
+    heatBucketCount: 10,
+  },
+  flags: {
+    referenceCameraDistance: 6,
+    minScale: 0.22,
+    maxScale: 1.15,
+    scaleCurve: 1.8,
+    baseSizePx: 32,
+    baseFontSizePx: 16,
+    basePaddingXPx: 6,
+  },
+} as const;

@@ -1,6 +1,7 @@
 import type {
   BriefResponse,
   NewsResponse,
+  SentimentEntry,
   SentimentResponse,
 } from "./types";
 
@@ -518,9 +519,9 @@ const BRIEF_DATA: Record<string, BriefResponse> = {
   },
 };
 
-const GLOBAL_SENTIMENT: SentimentResponse = {
+const GLOBAL_SENTIMENT_RAW = {
   countries: [
-    { countryCode: "US", sentiment: "neutral", sentimentScore: 0.15 },
+    { countryCode: "US", sentiment: "neutral" as const, sentimentScore: 0.15 },
     { countryCode: "BR", sentiment: "positive", sentimentScore: 0.3 },
     { countryCode: "IN", sentiment: "positive", sentimentScore: 0.55 },
     { countryCode: "DE", sentiment: "neutral", sentimentScore: 0.1 },
@@ -574,5 +575,13 @@ export function getMockBrief(countryCode: string): BriefResponse | null {
 }
 
 export function getMockGlobalSentiment(): SentimentResponse {
-  return GLOBAL_SENTIMENT;
+  return {
+    generatedAt: GLOBAL_SENTIMENT_RAW.generatedAt,
+    countries: GLOBAL_SENTIMENT_RAW.countries.map((c) => ({
+      countryCode: c.countryCode,
+      sentiment: c.sentiment as SentimentEntry["sentiment"],
+      sentimentScore: c.sentimentScore,
+      articleCount: NEWS_DATA[c.countryCode]?.articles.length ?? 0,
+    })),
+  };
 }

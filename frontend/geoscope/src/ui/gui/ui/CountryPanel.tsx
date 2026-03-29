@@ -6,6 +6,7 @@ import { useVoiceBrief } from "../../hooks/useVoiceBrief";
 import { SentimentBadge } from "./SentimentBadge";
 import { TagCloud } from "./TagCloud";
 import { ArticleCard } from "./ArticleCard";
+import { SourcesLoader } from "./SourcesLoader";
 
 export function CountryPanel() {
   const selectedCountry = useGlobeStore((s) => s.selectedCountry);
@@ -81,11 +82,7 @@ export function CountryPanel() {
             scrollBehavior: "auto",
             overscrollBehavior: "contain",
           }}>
-            {isLoading && (
-              <div className="flex items-center justify-center py-12">
-                <div className="w-6 h-6 border-2 border-accent-teal border-t-transparent rounded-full animate-spin" />
-              </div>
-            )}
+            {isLoading && <SourcesLoader />}
 
             {error && (
               <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">

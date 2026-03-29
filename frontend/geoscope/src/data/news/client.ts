@@ -70,6 +70,7 @@ export interface TrendingArticle {
   url: string;
   publishedAt: string;
   description: string | null;
+  imageUrl: string | null;
   category: string;
 }
 
@@ -99,9 +100,13 @@ export interface SourceCoverage {
 
 export interface BiasComparisonResponse {
   storyTitle: string;
+  bulletSummary: string[];
   originalSource: SourceCoverage;
   otherSources: SourceCoverage[];
   keyDifferences: string[];
+  keyTopics: string[];
+  consensus: string[];
+  disagreements: string[];
   cached: boolean;
 }
 

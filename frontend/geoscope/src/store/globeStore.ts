@@ -9,6 +9,8 @@ import type {
 interface GlobeState {
   selectedCountry: string | null;
   hoveredCountry: string | null;
+  hoveredScreenPosition: { x: number; y: number } | null;
+  hoveredStoryTitle: string | null;
   activeDate: Date;
   connectDotsMode: boolean;
   selectedCategory: NewsCategory | null;
@@ -18,10 +20,16 @@ interface GlobeState {
   isLoading: boolean;
   error: string | null;
   isCameraAnimating: boolean;
+  isInteracting: boolean;
+  heatmapDirty: boolean;
+  pendingArticleNav: { title: string; source: string; url: string } | null;
 
   selectCountry: (code: string) => void;
   clearSelectedCountry: () => void;
   setHoveredCountry: (code: string | null) => void;
+  setHoveredStoryTitle: (title: string | null) => void;
+  setHoveredScreenPosition: (position: { x: number; y: number } | null) => void;
+  clearHoveredItem: () => void;
   setActiveDate: (date: Date) => void;
   toggleConnectDots: () => void;
   setSelectedCategory: (category: NewsCategory | null) => void;
@@ -31,11 +39,16 @@ interface GlobeState {
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
   setCameraAnimating: (animating: boolean) => void;
+  setIsInteracting: (interacting: boolean) => void;
+  setHeatmapDirty: (dirty: boolean) => void;
+  setPendingArticleNav: (nav: { title: string; source: string; url: string } | null) => void;
 }
 
 export const useGlobeStore = create<GlobeState>((set) => ({
   selectedCountry: null,
   hoveredCountry: null,
+  hoveredScreenPosition: null,
+  hoveredStoryTitle: null,
   activeDate: new Date(),
   connectDotsMode: false,
   selectedCategory: null,
@@ -45,18 +58,31 @@ export const useGlobeStore = create<GlobeState>((set) => ({
   isLoading: false,
   error: null,
   isCameraAnimating: false,
+  isInteracting: false,
+  heatmapDirty: true,
+  pendingArticleNav: null,
 
   selectCountry: (code) => set({ selectedCountry: code }),
   clearSelectedCountry: () => set({ selectedCountry: null }),
   setHoveredCountry: (code) => set({ hoveredCountry: code }),
+  setHoveredStoryTitle: (title) => set({ hoveredStoryTitle: title }),
+  setHoveredScreenPosition: (position) => set({ hoveredScreenPosition: position }),
+  clearHoveredItem: () =>
+    set({
+      hoveredCountry: null,
+      hoveredScreenPosition: null,
+      hoveredStoryTitle: null,
+    }),
   setActiveDate: (date) => set({ activeDate: date }),
   toggleConnectDots: () =>
     set((state) => ({ connectDotsMode: !state.connectDotsMode })),
-  setSelectedCategory: (category) => set({ selectedCategory: category }),
-  setGlobalSentiment: (data) => set({ globalSentiment: data }),
+  setSelectedCategory: (category) =>
+    set({ selectedCategory: category, heatmapDirty: true }),
+  setGlobalSentiment: (data) => set({ globalSentiment: data, heatmapDirty: true }),
   setCountryNews: (code, data) =>
     set((state) => ({
       countryNews: { ...state.countryNews, [code]: data },
+      heatmapDirty: true,
     })),
   setCountryBrief: (code, data) =>
     set((state) => ({
@@ -65,4 +91,7 @@ export const useGlobeStore = create<GlobeState>((set) => ({
   setLoading: (loading) => set({ isLoading: loading }),
   setError: (error) => set({ error }),
   setCameraAnimating: (animating) => set({ isCameraAnimating: animating }),
+  setIsInteracting: (interacting) => set({ isInteracting: interacting }),
+  setHeatmapDirty: (dirty) => set({ heatmapDirty: dirty }),
+  setPendingArticleNav: (nav) => set({ pendingArticleNav: nav }),
 }));

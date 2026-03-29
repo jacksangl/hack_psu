@@ -3,10 +3,7 @@ import { useGlobeStore } from "../../../store/globeStore";
 import { getCountryByCode } from "../../../utils/countryData";
 import { fetchCountryNews } from "../client";
 import { clusterPins, type PinData } from "../processing/clusterPins";
-
-const CONNECT_DOTS_COUNTRY_LIMIT = 10;
-const COUNTRY_NEWS_PREFETCH_CONCURRENCY = 4;
-const PREFETCH_COUNTRY_LIMIT = 30;
+import { NEWS_GLOBE_CONFIG } from "../../../ui/news/globe/globeConfig";
 
 export interface NewsGlobeArc {
   key: string;
@@ -49,9 +46,10 @@ export function useNewsGlobeData() {
 
   const markerCountryCodes = useMemo(() => {
     const prioritized = Object.values(globalSentiment)
+      .filter((entry) => (entry.articleCount ?? 0) > 0)
       .sort(
         (left, right) =>
-          Math.abs(right.sentimentScore) - Math.abs(left.sentimentScore) ||
+          (right.articleCount ?? 0) - (left.articleCount ?? 0) ||
           left.countryCode.localeCompare(right.countryCode)
       )
       .map((entry) => entry.countryCode)
@@ -61,11 +59,11 @@ export function useNewsGlobeData() {
       prioritized.unshift(selectedCountry);
     }
 
-    return Array.from(new Set(prioritized)).slice(0, PREFETCH_COUNTRY_LIMIT);
+    return Array.from(new Set(prioritized)).slice(0, NEWS_GLOBE_CONFIG.prefetchCountryLimit);
   }, [globalSentiment, selectedCountry]);
 
   const connectDotsCountryCodes = useMemo(
-    () => markerCountryCodes.slice(0, CONNECT_DOTS_COUNTRY_LIMIT),
+    () => markerCountryCodes.slice(0, NEWS_GLOBE_CONFIG.connectDotsCountryLimit),
     [markerCountryCodes]
   );
 
@@ -84,7 +82,7 @@ export function useNewsGlobeData() {
     let cancelled = false;
     const queue = [...uncachedCodes];
     const workerCount = Math.min(
-      COUNTRY_NEWS_PREFETCH_CONCURRENCY,
+      NEWS_GLOBE_CONFIG.prefetchConcurrency,
       queue.length
     );
 

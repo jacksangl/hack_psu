@@ -25,11 +25,15 @@ const aiProvider: AiProvider = {
   generateBrief: vi.fn(async () => {
     throw new Error("not used");
   }),
-  generateComparison: vi.fn(async ({ otherSources }) => ({
+  generateComparison: vi.fn(async ({ otherSources }: { otherSources: Array<{ source: string }> }) => ({
     storyTitle: "Neutral story",
+    bulletSummary: ["Shared core event"],
     originalSummary: "Original framing summary",
     sourceSummaries: otherSources.map((source) => `${source.source} summary`),
     keyDifferences: ["Different emphasis"],
+    keyTopics: ["Topic A"],
+    consensus: ["All agree on X"],
+    disagreements: ["Differ on Y"],
   })),
   name: "gemini",
 };
@@ -80,7 +84,53 @@ describe("BiasComparisonService", () => {
       "MMA Junkie",
       "CBS Sports",
     ]);
+    expect(response.bulletSummary).toEqual(["Shared core event"]);
     expect(response.keyDifferences).toEqual(["Different emphasis"]);
     expect(aiProvider.generateComparison).toHaveBeenCalledOnce();
+  });
+
+  it("fills bullet summary and agreement sections from fallback when AI returns blanks", async () => {
+    vi.mocked(aiProvider.generateComparison).mockResolvedValueOnce({
+      storyTitle: "Neutral story",
+      bulletSummary: [],
+      originalSummary: "",
+      sourceSummaries: [],
+      keyDifferences: [],
+      keyTopics: [],
+      consensus: [],
+      disagreements: [],
+    });
+
+    fetchRssMock.mockResolvedValue([
+      {
+        title: "Missile strike hits port city after overnight barrage",
+        link: "https://news.google.com/rss/articles/source-a",
+        source: "Reuters",
+        pubDate: "2026-03-29T00:00:00Z",
+        description: "Reuters description",
+      },
+      {
+        title: "Port city missile strike kills 12 in overnight barrage",
+        link: "https://news.google.com/rss/articles/source-b",
+        source: "BBC",
+        pubDate: "2026-03-29T02:00:00Z",
+        description: "BBC description",
+      },
+    ]);
+
+    const service = new BiasComparisonService({
+      aiProvider,
+      cacheStore,
+    });
+
+    const response = await service.compare({
+      source: "AP News",
+      title: "Overnight missile strike hits port city, killing 12",
+      url: "https://example.com/original",
+    });
+
+    expect(response.bulletSummary.length).toBeGreaterThan(0);
+    expect(response.consensus.length).toBeGreaterThan(0);
+    expect(response.disagreements.length).toBeGreaterThan(0);
   });
 });

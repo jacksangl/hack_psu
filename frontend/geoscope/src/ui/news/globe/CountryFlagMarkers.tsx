@@ -1,273 +1,293 @@
-import { Html } from "@react-three/drei";
-import { useFrame } from "@react-three/fiber";
-import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { useFrame, type ThreeEvent } from "@react-three/fiber";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+} from "react";
 import * as THREE from "three";
 import { useCountryVisualHeatData } from "../../../data/news/hooks/useCountryVisualHeatData";
+import { selectVisibleCountries } from "../../../data/news/processing/selectVisibleCountries";
 import { useGlobeStore } from "../../../store/globeStore";
 import { getCountryByCode } from "../../../utils/countryData";
 import { latLngToVector3 } from "../../../utils/geoHelpers";
 import { heatToHex } from "../../../utils/heatmapColors";
-import { useGlobeVisibility } from "../../hooks/useGlobeVisibility";
+import { NEWS_GLOBE_CONFIG } from "./globeConfig";
 
-const FLAG_REFERENCE_CAMERA_DISTANCE = 6;
-const FLAG_MIN_SCALE = 0.22;
-const FLAG_MAX_SCALE = 1.15;
-const FLAG_SCALE_CURVE = 1.8;
-const FLAG_BASE_SIZE_PX = 32;
-const FLAG_BASE_FONT_SIZE_PX = 16;
-const FLAG_BASE_PADDING_X_PX = 6;
-const MAX_VISIBLE_FLAGS = 50;
-
-/** Countries that always show a flag on the globe regardless of ranking. */
-const PRIORITY_COUNTRIES = new Set([
-  "US", "GB", "CN", "RU", "IN", "JP", "DE", "FR", "BR", "AU",
-  "CA", "KR", "IT", "ES", "MX", "ID", "TR", "SA", "IL", "UA",
-  "NG", "ZA", "EG", "PK", "AR", "PL", "NL", "SE", "TW", "TH",
-]);
-
-interface CountryFlagMarkerProps {
+interface MarkerDatum {
+  color: THREE.Color;
   countryCode: string;
+  glowColor: THREE.Color;
+  highlightColor: THREE.Color;
   lat: number;
   lng: number;
-  flag: string;
   name: string;
-  heat: number;
+  position: THREE.Vector3;
+  quaternion: THREE.Quaternion;
 }
 
-const CountryFlagMarker = memo(function CountryFlagMarker({
-  countryCode,
-  lat,
-  lng,
-  flag,
-  name,
-  heat,
-}: CountryFlagMarkerProps) {
-  const selectCountry = useGlobeStore((s) => s.selectCountry);
-  const clearSelectedCountry = useGlobeStore((s) => s.clearSelectedCountry);
-  const selectedCountry = useGlobeStore((s) => s.selectedCountry);
-  const groupRef = useRef<THREE.Group>(null);
-  const contentRef = useRef<THREE.Group>(null);
-  const isVisible = useGlobeVisibility(groupRef);
-  const [hovered, setHovered] = useState(false);
-  const [htmlScale, setHtmlScale] = useState(1);
-  const htmlScaleRef = useRef(1);
+const STEM_Y_OFFSET = 0.045;
+const DOT_Y_OFFSET = 0.092;
+const HIT_Y_OFFSET = 0.092;
+const HIT_RADIUS = 0.03;
+const HOVER_SCALE = 1.06;
+const SELECTED_SCALE = 1.12;
 
-  const position = useMemo(
-    () => latLngToVector3(lat, lng, 2.012),
-    [lat, lng]
+const tempMatrix = new THREE.Matrix4();
+const tempScale = new THREE.Vector3();
+const tempPosition = new THREE.Vector3();
+const tempQuaternion = new THREE.Quaternion();
+
+function pointerPosition(event: ThreeEvent<PointerEvent>) {
+  return {
+    x: event.nativeEvent.clientX,
+    y: event.nativeEvent.clientY,
+  };
+}
+
+function CountryFlagMarkersComponent() {
+  const heatData = useCountryVisualHeatData();
+  const selectedCountry = useGlobeStore((state) => state.selectedCountry);
+  const hoveredCountry = useGlobeStore((state) => state.hoveredCountry);
+  const selectCountry = useGlobeStore((state) => state.selectCountry);
+  const clearSelectedCountry = useGlobeStore((state) => state.clearSelectedCountry);
+  const setHoveredCountry = useGlobeStore((state) => state.setHoveredCountry);
+  const setHoveredStoryTitle = useGlobeStore((state) => state.setHoveredStoryTitle);
+  const setHoveredScreenPosition = useGlobeStore(
+    (state) => state.setHoveredScreenPosition
   );
+  const clearHoveredItem = useGlobeStore((state) => state.clearHoveredItem);
 
-  const quaternion = useMemo(() => {
-    const normal = position.clone().normalize();
-    const q = new THREE.Quaternion();
-    q.setFromUnitVectors(new THREE.Vector3(0, 1, 0), normal);
-    return q;
-  }, [position]);
+  const stemMeshRef = useRef<THREE.InstancedMesh>(null);
+  const dotMeshRef = useRef<THREE.InstancedMesh>(null);
+  const hitMeshRef = useRef<THREE.InstancedMesh>(null);
+  const lastZoomScaleRef = useRef(0);
 
-  const isSelected = selectedCountry === countryCode;
-  const accentColor = useMemo(() => heatToHex(heat), [heat]);
-  const borderColor = useMemo(() => {
-    return new THREE.Color(accentColor)
-      .lerp(new THREE.Color("#f8fafc"), isSelected ? 0.28 : 0.12)
-      .getStyle();
-  }, [accentColor, isSelected]);
-  const glowColor = useMemo(() => {
-    return new THREE.Color(accentColor)
-      .lerp(new THREE.Color("#ffffff"), 0.12)
-      .getStyle();
-  }, [accentColor]);
+  const stemGeometry = useMemo(
+    () =>
+      new THREE.CylinderGeometry(0.003, 0.003, 0.09, 6).translate(
+        0,
+        STEM_Y_OFFSET,
+        0
+      ),
+    []
+  );
+  const dotGeometry = useMemo(
+    () => new THREE.SphereGeometry(0.009, 8, 8).translate(0, DOT_Y_OFFSET, 0),
+    []
+  );
+  const hitGeometry = useMemo(
+    () =>
+      new THREE.SphereGeometry(HIT_RADIUS, 12, 12).translate(0, HIT_Y_OFFSET, 0),
+    []
+  );
 
   useEffect(() => {
-    if (!isVisible) {
-      setHovered(false);
-      document.body.style.cursor = "default";
-    }
-  }, [isVisible]);
-
-  useFrame((state) => {
-    if (!contentRef.current) return;
-
-    const cameraDistance = state.camera.position.length();
-    const zoomScale = THREE.MathUtils.clamp(
-      Math.pow(
-        cameraDistance / FLAG_REFERENCE_CAMERA_DISTANCE,
-        FLAG_SCALE_CURVE
-      ),
-      FLAG_MIN_SCALE,
-      FLAG_MAX_SCALE
-    );
-
-    const currentScale = contentRef.current.scale.x;
-    if (Math.abs(currentScale - zoomScale) < 0.001) return;
-
-    const nextScale = THREE.MathUtils.lerp(currentScale, zoomScale, 0.14);
-    contentRef.current.scale.setScalar(nextScale);
-
-    if (Math.abs(htmlScaleRef.current - nextScale) > 0.01) {
-      htmlScaleRef.current = nextScale;
-      setHtmlScale(nextScale);
-    }
-  });
-
-  const interactionScale = isSelected ? 1.1 : hovered ? 1.05 : 1;
-  const interactionLift = (isSelected || hovered ? -2 : 0) * htmlScale;
-  const badgeSizePx = FLAG_BASE_SIZE_PX * htmlScale;
-  const badgePaddingXPx = FLAG_BASE_PADDING_X_PX * htmlScale;
-  const badgeFontSizePx = FLAG_BASE_FONT_SIZE_PX * htmlScale;
-
-  return (
-    <group
-      ref={groupRef}
-      position={position}
-      quaternion={quaternion}
-    >
-      {isVisible && (
-        <group ref={contentRef}>
-          <mesh position={[0, 0.045, 0]}>
-            <cylinderGeometry args={[0.003, 0.003, 0.09, 6]} />
-            <meshBasicMaterial
-              color={accentColor}
-              transparent
-              opacity={0.82}
-            />
-          </mesh>
-
-          <mesh position={[0, 0.092, 0]}>
-            <sphereGeometry args={[0.009, 8, 8]} />
-            <meshBasicMaterial color={accentColor} />
-          </mesh>
-
-          <Html
-            position={[0, 0.145, 0]}
-            center
-            style={{ pointerEvents: "auto" }}
-            zIndexRange={[14, 0]}
-          >
-            <button
-              type="button"
-              title={name}
-              aria-label={name}
-              onPointerOver={() => {
-                setHovered(true);
-                document.body.style.cursor = "pointer";
-              }}
-              onPointerOut={() => {
-                setHovered(false);
-                document.body.style.cursor = "default";
-              }}
-              onClick={(event) => {
-                event.stopPropagation();
-                if (selectedCountry === countryCode) {
-                  clearSelectedCountry();
-                } else {
-                  selectCountry(countryCode);
-                }
-              }}
-              className={`
-                flex items-center justify-center
-                rounded-md border
-                bg-slate-950/80 backdrop-blur-sm
-                shadow-[0_10px_28px_rgba(2,6,23,0.35)]
-                transition-all duration-200
-                select-none
-              `}
-              style={{
-                borderColor,
-                boxShadow: isSelected
-                  ? `0 0 0 1px rgba(248,250,252,0.2), 0 10px 26px ${glowColor}`
-                  : undefined,
-                minWidth: `${badgeSizePx}px`,
-                height: `${badgeSizePx}px`,
-                paddingLeft: `${badgePaddingXPx}px`,
-                paddingRight: `${badgePaddingXPx}px`,
-                transform: `translateY(${interactionLift}px) scale(${interactionScale})`,
-                transformOrigin: "center center",
-              }}
-            >
-              <span
-                aria-hidden="true"
-                style={{ fontSize: `${badgeFontSizePx}px`, lineHeight: 1 }}
-              >
-                {flag}
-              </span>
-            </button>
-          </Html>
-        </group>
-      )}
-    </group>
-  );
-});
-
-export function CountryFlagMarkers() {
-  const heatData = useCountryVisualHeatData();
-  const selectedCountry = useGlobeStore((s) => s.selectedCountry);
+    return () => {
+      stemGeometry.dispose();
+      dotGeometry.dispose();
+      hitGeometry.dispose();
+    };
+  }, [dotGeometry, hitGeometry, stemGeometry]);
 
   const markers = useMemo(() => {
-    const all = Object.entries(heatData)
-      .map(([countryCode, entry]) => {
-        const country = getCountryByCode(countryCode);
-        if (!country || !entry.hasNews || entry.sourceCount === 0) return null;
+    return selectVisibleCountries(heatData, {
+      limit: NEWS_GLOBE_CONFIG.visibleCountryLimit,
+      selectedCountry,
+    })
+      .map((entry) => {
+        const country = getCountryByCode(entry.countryCode);
+        if (!country) {
+          return null;
+        }
+
+        const position = latLngToVector3(country.lat, country.lng, 2.012);
+        tempPosition.copy(position).normalize();
+        tempQuaternion.setFromUnitVectors(
+          new THREE.Vector3(0, 1, 0),
+          tempPosition
+        );
+
+        const color = new THREE.Color(heatToHex(entry.heat));
 
         return {
-          key: countryCode,
-          countryCode,
+          countryCode: entry.countryCode,
+          name: country.name,
           lat: country.lat,
           lng: country.lng,
-          flag: country.flag,
-          name: country.name,
-          heat: entry.heat,
-        };
+          position: position.clone(),
+          quaternion: tempQuaternion.clone(),
+          color,
+          highlightColor: color.clone().lerp(new THREE.Color("#f8fafc"), 0.22),
+          glowColor: color.clone().lerp(new THREE.Color("#ffffff"), 0.12),
+        } satisfies MarkerDatum;
       })
-      .filter(Boolean)
-      .sort((left, right) => {
-        const a = left as NonNullable<typeof left>;
-        const b = right as NonNullable<typeof right>;
-        return b.heat - a.heat || a.countryCode.localeCompare(b.countryCode);
-      }) as Array<{
-      key: string;
-      countryCode: string;
-      lat: number;
-      lng: number;
-      flag: string;
-      name: string;
-      heat: number;
-    }>;
-
-    // Always include priority countries + the selected country, then fill to MAX_VISIBLE_FLAGS
-    const result: typeof all = [];
-    const included = new Set<string>();
-
-    for (const m of all) {
-      if (PRIORITY_COUNTRIES.has(m.countryCode) || m.countryCode === selectedCountry) {
-        result.push(m);
-        included.add(m.countryCode);
-      }
-    }
-
-    for (const m of all) {
-      if (result.length >= MAX_VISIBLE_FLAGS) break;
-      if (!included.has(m.countryCode)) {
-        result.push(m);
-        included.add(m.countryCode);
-      }
-    }
-
-    return result;
+      .filter((marker): marker is MarkerDatum => marker !== null);
   }, [heatData, selectedCountry]);
+
+  const syncInstances = useCallback(
+    (baseScale: number) => {
+      const stemMesh = stemMeshRef.current;
+      const dotMesh = dotMeshRef.current;
+      const hitMesh = hitMeshRef.current;
+      if (!stemMesh || !dotMesh || !hitMesh) {
+        return;
+      }
+
+      for (let index = 0; index < markers.length; index++) {
+        const marker = markers[index];
+        const interactionScale =
+          marker.countryCode === selectedCountry
+            ? SELECTED_SCALE
+            : marker.countryCode === hoveredCountry
+              ? HOVER_SCALE
+              : 1;
+
+        tempScale.setScalar(baseScale * interactionScale);
+        tempMatrix.compose(marker.position, marker.quaternion, tempScale);
+        stemMesh.setMatrixAt(index, tempMatrix);
+        dotMesh.setMatrixAt(index, tempMatrix);
+
+        tempScale.setScalar(baseScale * 1.35);
+        tempMatrix.compose(marker.position, marker.quaternion, tempScale);
+        hitMesh.setMatrixAt(index, tempMatrix);
+
+        stemMesh.setColorAt(
+          index,
+          marker.countryCode === selectedCountry
+            ? marker.highlightColor
+            : marker.color
+        );
+        dotMesh.setColorAt(
+          index,
+          marker.countryCode === selectedCountry
+            ? marker.glowColor
+            : marker.color
+        );
+      }
+
+      stemMesh.instanceMatrix.needsUpdate = true;
+      dotMesh.instanceMatrix.needsUpdate = true;
+      hitMesh.instanceMatrix.needsUpdate = true;
+
+      if (stemMesh.instanceColor) {
+        stemMesh.instanceColor.needsUpdate = true;
+      }
+      if (dotMesh.instanceColor) {
+        dotMesh.instanceColor.needsUpdate = true;
+      }
+    },
+    [hoveredCountry, markers, selectedCountry]
+  );
+
+  useLayoutEffect(() => {
+    syncInstances(lastZoomScaleRef.current || 1);
+  }, [syncInstances]);
+
+  useFrame((state) => {
+    const zoomScale = THREE.MathUtils.clamp(
+      Math.pow(
+        state.camera.position.length() /
+          NEWS_GLOBE_CONFIG.flags.referenceCameraDistance,
+        NEWS_GLOBE_CONFIG.flags.scaleCurve
+      ),
+      NEWS_GLOBE_CONFIG.flags.minScale,
+      NEWS_GLOBE_CONFIG.flags.maxScale
+    );
+
+    if (Math.abs(lastZoomScaleRef.current - zoomScale) < 0.01) {
+      return;
+    }
+
+    lastZoomScaleRef.current = zoomScale;
+    syncInstances(zoomScale);
+  });
+
+  const handlePointerMove = useCallback(
+    (event: ThreeEvent<PointerEvent>) => {
+      event.stopPropagation();
+      if (event.instanceId == null) {
+        return;
+      }
+
+      const marker = markers[event.instanceId];
+      if (!marker) {
+        return;
+      }
+
+      setHoveredStoryTitle(null);
+      setHoveredCountry(marker.name);
+      setHoveredScreenPosition(pointerPosition(event));
+      document.body.style.cursor = "pointer";
+    },
+    [markers, setHoveredCountry, setHoveredScreenPosition, setHoveredStoryTitle]
+  );
+
+  const handlePointerOut = useCallback(() => {
+    clearHoveredItem();
+    document.body.style.cursor = "default";
+  }, [clearHoveredItem]);
+
+  const handleClick = useCallback(
+    (event: ThreeEvent<MouseEvent>) => {
+      event.stopPropagation();
+      if (event.delta > 4 || event.instanceId == null) {
+        return;
+      }
+
+      const marker = markers[event.instanceId];
+      if (!marker) {
+        return;
+      }
+
+      clearHoveredItem();
+      document.body.style.cursor = "default";
+
+      if (marker.countryCode === selectedCountry) {
+        clearSelectedCountry();
+      } else {
+        selectCountry(marker.countryCode);
+      }
+    },
+    [clearHoveredItem, clearSelectedCountry, markers, selectCountry, selectedCountry]
+  );
+
+  if (markers.length === 0) {
+    return null;
+  }
 
   return (
     <group>
-      {markers.map((marker) => (
-        <CountryFlagMarker
-          key={marker.key}
-          countryCode={marker.countryCode}
-          lat={marker.lat}
-          lng={marker.lng}
-          flag={marker.flag}
-          name={marker.name}
-          heat={marker.heat}
-        />
-      ))}
+      <instancedMesh
+        ref={stemMeshRef}
+        args={[stemGeometry, undefined, markers.length]}
+        frustumCulled={false}
+      >
+        <meshBasicMaterial transparent opacity={0.82} />
+      </instancedMesh>
+
+      <instancedMesh
+        ref={dotMeshRef}
+        args={[dotGeometry, undefined, markers.length]}
+        frustumCulled={false}
+      >
+        <meshBasicMaterial />
+      </instancedMesh>
+
+      <instancedMesh
+        ref={hitMeshRef}
+        args={[hitGeometry, undefined, markers.length]}
+        frustumCulled={false}
+        onPointerMove={handlePointerMove}
+        onPointerOut={handlePointerOut}
+        onClick={handleClick}
+      >
+        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+      </instancedMesh>
     </group>
   );
 }
+
+export const CountryFlagMarkers = memo(CountryFlagMarkersComponent);

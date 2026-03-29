@@ -1,16 +1,9 @@
-import { useRef, useState, useMemo, memo, useEffect } from "react";
-import { useFrame } from "@react-three/fiber";
+import { useMemo, memo, useCallback } from "react";
+import { type ThreeEvent } from "@react-three/fiber";
 import * as THREE from "three";
 import { latLngToVector3 } from "../../../utils/geoHelpers";
 import { sentimentToHex, type Sentiment } from "../../../utils/sentimentColors";
-import { Html } from "@react-three/drei";
-import { useGlobeVisibility } from "../../hooks/useGlobeVisibility";
-
-const PIN_REFERENCE_CAMERA_DISTANCE = 6;
-const PIN_MIN_SCALE = 0.45;
-const PIN_MAX_SCALE = 1.2;
-const PIN_SCALE_CURVE = 1.08;
-const PIN_HOVER_MULTIPLIER = 1.16;
+import { useGlobeStore } from "../../../store/globeStore";
 
 interface NewsPinProps {
   lat: number;
@@ -18,6 +11,7 @@ interface NewsPinProps {
   sentiment: Sentiment;
   title: string;
   url: string;
+  source?: string;
 }
 
 function NewsPinComponent({
@@ -26,11 +20,16 @@ function NewsPinComponent({
   sentiment,
   title,
   url,
+  source,
 }: NewsPinProps) {
-  const groupRef = useRef<THREE.Group>(null);
-  const [hovered, setHovered] = useState(false);
-  const targetScale = useRef(1);
-  const isVisible = useGlobeVisibility(groupRef);
+  const setHoveredCountry = useGlobeStore((state) => state.setHoveredCountry);
+  const setHoveredStoryTitle = useGlobeStore(
+    (state) => state.setHoveredStoryTitle
+  );
+  const setHoveredScreenPosition = useGlobeStore(
+    (state) => state.setHoveredScreenPosition
+  );
+  const clearHoveredItem = useGlobeStore((state) => state.clearHoveredItem);
 
   const position = useMemo(
     () => latLngToVector3(lat, lng, 2.01),
@@ -46,100 +45,87 @@ function NewsPinComponent({
 
   const color = sentimentToHex(sentiment);
 
-  useEffect(() => {
-    if (isVisible) return;
-    setHovered(false);
+  const handlePointerMove = useCallback(
+    (event: ThreeEvent<PointerEvent>) => {
+      event.stopPropagation();
+      setHoveredCountry(null);
+      setHoveredStoryTitle(title);
+      setHoveredScreenPosition({
+        x: event.nativeEvent.clientX,
+        y: event.nativeEvent.clientY,
+      });
+      document.body.style.cursor = "pointer";
+    },
+    [setHoveredCountry, setHoveredScreenPosition, setHoveredStoryTitle, title]
+  );
+
+  const handlePointerOut = useCallback(() => {
+    clearHoveredItem();
     document.body.style.cursor = "default";
-  }, [isVisible]);
+  }, [clearHoveredItem]);
 
-  useFrame((state) => {
-    if (!groupRef.current) return;
-    const cameraDistance = state.camera.position.length();
-    const zoomScale = THREE.MathUtils.clamp(
-      Math.pow(cameraDistance / PIN_REFERENCE_CAMERA_DISTANCE, PIN_SCALE_CURVE),
-      PIN_MIN_SCALE,
-      PIN_MAX_SCALE
-    );
+  const setPendingArticleNav = useGlobeStore(
+    (state) => state.setPendingArticleNav
+  );
 
-    targetScale.current = hovered
-      ? zoomScale * PIN_HOVER_MULTIPLIER
-      : zoomScale;
-
-    const s = groupRef.current.scale.x;
-    if (Math.abs(s - targetScale.current) < 0.001) return;
-    const next = THREE.MathUtils.lerp(s, targetScale.current, 0.15);
-    groupRef.current.scale.setScalar(next);
-  });
-
-  const handleClick = () => {
-    setHovered(false);
+  const handleClick = useCallback(() => {
+    clearHoveredItem();
     document.body.style.cursor = "default";
     if (!url) return;
-    window.open(url, "_blank", "noopener,noreferrer");
-  };
+    setPendingArticleNav({ title, source: source || "", url });
+  }, [clearHoveredItem, url, title, source, setPendingArticleNav]);
 
   return (
     <group
-      ref={groupRef}
       position={position}
       quaternion={quaternion}
     >
-      {isVisible && (
-        <group>
-          {/* Pin stem */}
-          <mesh position={[0, 0.03, 0]}>
-            <cylinderGeometry args={[0.003, 0.003, 0.06, 6]} />
-            <meshBasicMaterial color={color} />
-          </mesh>
+      <group>
+        <mesh position={[0, 0.03, 0]}>
+          <cylinderGeometry args={[0.003, 0.003, 0.06, 6]} />
+          <meshBasicMaterial color={color} />
+        </mesh>
 
-          {/* Pin head */}
-          <mesh
-            position={[0, 0.07, 0]}
-            onPointerOver={(e) => {
-              e.stopPropagation();
-              setHovered(true);
-              document.body.style.cursor = "pointer";
-            }}
-            onPointerOut={() => {
-              setHovered(false);
-              document.body.style.cursor = "default";
-            }}
-            onClick={(e) => {
-              if (e.delta > 4) return;
-              e.stopPropagation();
-              handleClick();
-            }}
-          >
-            <sphereGeometry args={[0.015, 8, 8]} />
-            <meshBasicMaterial color={color} />
-          </mesh>
+        <mesh
+          position={[0, 0.07, 0]}
+          onPointerMove={handlePointerMove}
+          onPointerOut={handlePointerOut}
+          onClick={(event) => {
+            if (event.delta > 4) return;
+            event.stopPropagation();
+            handleClick();
+          }}
+        >
+          <sphereGeometry args={[0.015, 8, 8]} />
+          <meshBasicMaterial color={color} />
+        </mesh>
 
-          {/* Glow */}
-          <mesh position={[0, 0.07, 0]}>
-            <sphereGeometry args={[0.025, 8, 8]} />
-            <meshBasicMaterial
-              color={color}
-              transparent
-              opacity={0.25}
-              blending={THREE.AdditiveBlending}
-              depthWrite={false}
-            />
-          </mesh>
+        {/* Larger invisible hit area for easier clicking */}
+        <mesh
+          position={[0, 0.07, 0]}
+          onPointerMove={handlePointerMove}
+          onPointerOut={handlePointerOut}
+          onClick={(event) => {
+            if (event.delta > 4) return;
+            event.stopPropagation();
+            handleClick();
+          }}
+        >
+          <sphereGeometry args={[0.045, 8, 8]} />
+          <meshBasicMaterial visible={false} />
+        </mesh>
 
-          {/* Tooltip */}
-          {hovered && (
-            <Html
-              position={[0, 0.13, 0]}
-              center
-              style={{ pointerEvents: "none" }}
-            >
-              <div className="glass-panel px-3 py-2 max-w-[220px] text-xs text-slate-200 whitespace-normal">
-                {title}
-              </div>
-            </Html>
-          )}
-        </group>
-      )}
+        <mesh position={[0, 0.07, 0]}>
+          <sphereGeometry args={[0.025, 8, 8]} />
+          <meshBasicMaterial
+            color={color}
+            transparent
+            opacity={0.25}
+            blending={THREE.AdditiveBlending}
+            depthWrite={false}
+          />
+        </mesh>
+      </group>
     </group>
   );
 }

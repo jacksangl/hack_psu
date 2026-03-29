@@ -92,6 +92,7 @@ export function adaptGlobalSentimentResponse(raw: any): SentimentResponse {
         country.sentimentScore
       ),
       sentimentScore: country.sentimentScore ?? 0,
+      articleCount: country.articleCount ?? 0,
     })),
   };
 }

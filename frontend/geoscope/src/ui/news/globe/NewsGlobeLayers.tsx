@@ -24,6 +24,7 @@ export function NewsGlobeLayers() {
               : cluster.pins[0].title
           }
           url={cluster.pins[0].url}
+          source={cluster.pins[0].source}
         />
       ))}
 

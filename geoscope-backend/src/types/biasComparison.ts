@@ -7,9 +7,13 @@ export interface SourceCoverage {
 
 export interface BiasComparisonData {
   storyTitle: string;
+  bulletSummary: string[];
   originalSource: SourceCoverage;
   otherSources: SourceCoverage[];
   keyDifferences: string[];
+  keyTopics: string[];
+  consensus: string[];
+  disagreements: string[];
 }
 
 export interface BiasComparisonResponse extends BiasComparisonData {

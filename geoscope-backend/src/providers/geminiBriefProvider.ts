@@ -31,6 +31,27 @@ export class GeminiBriefProvider implements AiProvider {
     );
   }
 
+  private parseJsonObject(text: string): Record<string, unknown> {
+    const trimmed = text.trim();
+    const withoutFences = trimmed
+      .replace(/^```(?:json)?\s*/i, "")
+      .replace(/\s*```$/i, "")
+      .trim();
+
+    return JSON.parse(withoutFences) as Record<string, unknown>;
+  }
+
+  private stringArray(value: unknown): string[] {
+    if (!Array.isArray(value)) {
+      return [];
+    }
+
+    return value
+      .filter((item): item is string => typeof item === "string")
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+
   async generateBrief(params: GenerateBriefParams): Promise<BriefDraft> {
     if (params.articles.length === 0) {
       return buildFallbackBrief(params);
@@ -89,11 +110,17 @@ Return ONLY valid JSON, no markdown fences.`;
       .map((s, i) => `Source ${i + 1} (${s.source}): "${s.headline}"${s.description ? ` - ${s.description}` : ""}`)
       .join("\n");
 
-    const prompt = `You are a media analyst. Given the following news article and how other outlets covered the same story, produce a JSON object with these exact fields:
+    const prompt = `You are a media analyst. Given the following news article and how other outlets covered the SAME SPECIFIC EVENT (not just the same topic), produce a JSON object with these exact fields:
 - "storyTitle": a neutral, factual title for this story (not from any single source)
+- "bulletSummary": an array of 3-5 concise bullet points summarizing the core event and the main coverage takeaways
 - "originalSummary": 1-2 sentences summarizing how the original source (${params.originalSource}) framed this story based on their headline: "${params.originalTitle}"
 - "sourceSummaries": an array of strings, one per other source, each 1-2 sentences summarizing that outlet's framing/angle
 - "keyDifferences": an array of 2-4 strings, each describing a notable difference in how the sources covered this story (tone, emphasis, framing, omissions). Do NOT rate or label bias — just describe factual differences.
+- "keyTopics": an array of 3-5 key topics or themes this story covers (e.g. "US Foreign Policy", "Civilian Casualties", "NATO Response")
+- "consensus": an array of 2-4 bullet points describing what ALL sources agree on — shared facts, confirmed details
+- "disagreements": an array of 2-4 bullet points describing where sources disagree or frame the story differently — different emphasis, omitted details, contrasting tones
+
+Only include sources that are clearly covering the same specific event, not just the same general topic.
 
 Original article (${params.originalSource}): "${params.originalTitle}"
 
@@ -129,19 +156,31 @@ Return ONLY valid JSON, no markdown fences.`;
         throw new Error("No text in Gemini response");
       }
 
-      const parsed = JSON.parse(text);
+      const parsed = this.parseJsonObject(text);
       return {
-        storyTitle: parsed.storyTitle ?? params.originalTitle,
-        originalSummary: parsed.originalSummary ?? "",
-        sourceSummaries: parsed.sourceSummaries ?? [],
-        keyDifferences: parsed.keyDifferences ?? [],
+        storyTitle:
+          typeof parsed.storyTitle === "string" && parsed.storyTitle.trim()
+            ? parsed.storyTitle
+            : params.originalTitle,
+        bulletSummary: this.stringArray(parsed.bulletSummary),
+        originalSummary:
+          typeof parsed.originalSummary === "string" ? parsed.originalSummary : "",
+        sourceSummaries: this.stringArray(parsed.sourceSummaries),
+        keyDifferences: this.stringArray(parsed.keyDifferences),
+        keyTopics: this.stringArray(parsed.keyTopics),
+        consensus: this.stringArray(parsed.consensus),
+        disagreements: this.stringArray(parsed.disagreements),
       };
     } catch {
       return {
         storyTitle: params.originalTitle,
+        bulletSummary: [],
         originalSummary: "",
         sourceSummaries: params.otherSources.map(() => ""),
         keyDifferences: [],
+        keyTopics: [],
+        consensus: [],
+        disagreements: [],
       };
     }
   }

@@ -6,7 +6,8 @@ import { GlobeScene } from "./ui/gui/globe/GlobeScene";
 import { BottomBar } from "./ui/gui/layout/BottomBar";
 import { TopBar } from "./ui/gui/layout/TopBar";
 import { CountryPanel } from "./ui/gui/ui/CountryPanel";
-import { LoadingOverlay } from "./ui/gui/ui/LoadingOverlay";
+import { GlobeTooltip } from "./ui/gui/ui/GlobeTooltip";
+import { ArticleNavBridge } from "./ui/gui/ui/ArticleNavBridge";
 import { NewsHomePage } from "./pages/NewsHomePage";
 import { ArticleComparisonPage } from "./pages/ArticleComparisonPage";
 
@@ -19,9 +20,10 @@ function GlobeView() {
   return (
     <div className="w-full h-full relative bg-[#030712]">
       <GalaxyBackground />
-      <LoadingOverlay />
       <SentimentLoader />
       <GlobeScene />
+      <GlobeTooltip />
+      <ArticleNavBridge />
       <BottomBar />
       <CountryPanel />
     </div>

@@ -79,6 +79,7 @@ export interface RssItem {
   source: string;
   pubDate: string;
   description: string | null;
+  imageUrl: string | null;
 }
 
 function parseRssItems(xml: string): RssItem[] {
@@ -90,6 +91,20 @@ function parseRssItems(xml: string): RssItem[] {
     const link = $(el).find("link").first().text().trim();
     const pubDate = $(el).find("pubDate").first().text().trim();
     const description = $(el).find("description").first().text().trim() || null;
+    const descriptionImage = (() => {
+      if (!description) {
+        return null;
+      }
+
+      const descriptionDoc = cheerio.load(description);
+      return descriptionDoc("img").first().attr("src") ?? null;
+    })();
+    const mediaImage =
+      $(el).find("media\\:content, content").first().attr("url")
+      ?? $(el).find("media\\:thumbnail, thumbnail").first().attr("url")
+      ?? $(el).find("enclosure").first().attr("url")
+      ?? null;
+    const imageUrl = mediaImage || descriptionImage;
 
     const sourceTag = $(el).find("source").first().text().trim();
     let source = sourceTag || "";
@@ -103,7 +118,7 @@ function parseRssItems(xml: string): RssItem[] {
     }
 
     if (title && link) {
-      items.push({ title, link, source, pubDate, description });
+      items.push({ title, link, source, pubDate, description, imageUrl });
     }
   });
 
@@ -370,7 +385,7 @@ export class RssScraperProvider implements NewsProvider {
       url: item.link,
       publishedAt: item.pubDate ? new Date(item.pubDate).toISOString() : new Date().toISOString(),
       description: item.description ? cleanHtml(item.description) : null,
-      imageUrl: null,
+      imageUrl: item.imageUrl,
       locationName: params.countryName,
       toneScore: null,
     }));

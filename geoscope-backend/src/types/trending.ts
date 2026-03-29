@@ -5,6 +5,7 @@ export interface TrendingArticle {
   url: string;
   publishedAt: string;
   description: string | null;
+  imageUrl: string | null;
   category: string;
 }
 

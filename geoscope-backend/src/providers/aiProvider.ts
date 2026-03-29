@@ -19,9 +19,13 @@ export interface GenerateComparisonParams {
 
 export interface ComparisonDraft {
   storyTitle: string;
+  bulletSummary: string[];
   originalSummary: string;
   sourceSummaries: string[];
   keyDifferences: string[];
+  keyTopics: string[];
+  consensus: string[];
+  disagreements: string[];
 }
 
 export interface AiProvider {

@@ -1,16 +1,16 @@
 import { getCountryName, getSupportedCountryCodes, normalizeCountryCode } from "./countryCodeMap";
 
 const topicMatchers: Array<{ topic: string; pattern: RegExp }> = [
-  { topic: "Politics", pattern: /\b(election|government|minister|parliament|president|policy)\b/i },
-  { topic: "Conflict", pattern: /\b(attack|conflict|war|military|strike|violence)\b/i },
-  { topic: "Economy", pattern: /\b(economy|inflation|market|trade|budget|growth)\b/i },
-  { topic: "Business", pattern: /\b(company|business|industry|investment|merger|startup)\b/i },
-  { topic: "Climate", pattern: /\b(climate|weather|storm|flood|wildfire|drought)\b/i },
-  { topic: "Health", pattern: /\b(health|hospital|disease|virus|outbreak|medicine)\b/i },
-  { topic: "Technology", pattern: /\b(technology|ai|software|cyber|data|chip)\b/i },
-  { topic: "Sports", pattern: /\b(sport|football|soccer|basketball|cricket|tournament)\b/i },
-  { topic: "Culture", pattern: /\b(culture|festival|film|music|art|museum)\b/i },
-  { topic: "Diplomacy", pattern: /\b(diplomacy|summit|treaty|embassy|sanction|ceasefire)\b/i },
+  { topic: "Politics", pattern: /\b(election|government|minister|parliament|president|policy|congress|legislation|vote|senate|republican|democrat|law|reform|governor|mayor|caucus|primary|ballot)\b/i },
+  { topic: "Conflict", pattern: /\b(attack|conflict|war|military|strike|violence|missile|bomb|troops|invasion|siege|casualt|airstrike|drone|weapon|combat|insurgent|rebel|terror)\b/i },
+  { topic: "Economy", pattern: /\b(economy|inflation|market|trade|budget|growth|gdp|recession|unemployment|stocks|federal reserve|interest rate|debt|tariff|export|import|fiscal|monetary)\b/i },
+  { topic: "Business", pattern: /\b(company|business|industry|investment|merger|startup|ceo|profit|revenue|earnings|acquisition|ipo|shareholder|corporate|bankruptcy)\b/i },
+  { topic: "Climate", pattern: /\b(climate|weather|storm|flood|wildfire|drought|emissions|carbon|renewable|hurricane|tornado|earthquake|tsunami|pollution|warming)\b/i },
+  { topic: "Health", pattern: /\b(health|hospital|disease|virus|outbreak|medicine|vaccine|pandemic|surgeon|patient|cancer|treatment|pharmaceutical|fda|who)\b/i },
+  { topic: "Technology", pattern: /\b(technology|artificial intelligence|software|cyber|data|chip|robot|quantum|blockchain|tesla|apple|google|microsoft|openai|startup|semiconductor|internet|crypto)\b/i },
+  { topic: "Sports", pattern: /\b(sport|football|soccer|basketball|cricket|tournament|nba|nfl|uefa|olympics|match|championship|league|player|coach|mvp|score|medal|world cup|tennis|formula)\b/i },
+  { topic: "Culture", pattern: /\b(culture|festival|film|music|art|museum|movie|concert|theater|book|novel|award|grammy|oscar|emmy|celebrity)\b/i },
+  { topic: "Diplomacy", pattern: /\b(diplomacy|summit|treaty|embassy|sanction|ceasefire|bilateral|multilateral|nato|united nations|g7|g20|alliance|negotiation|accord)\b/i },
 ];
 
 const COUNTRY_ALIASES: Record<string, string[]> = {
