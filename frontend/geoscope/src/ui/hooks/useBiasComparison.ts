@@ -1,17 +1,32 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { fetchBiasComparison, type BiasComparisonResponse } from "../../data/news/client";
+
+const cache = new Map<string, BiasComparisonResponse>();
 
 export function useBiasComparison(
   title: string | null,
   source: string | null,
   url: string | null
 ) {
-  const [data, setData] = useState<BiasComparisonResponse | null>(null);
+  const cached = url ? cache.get(url) : undefined;
+  const [data, setData] = useState<BiasComparisonResponse | null>(cached ?? null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const prevUrl = useRef(url);
 
   useEffect(() => {
     if (!title || !url) return;
+
+    if (prevUrl.current !== url) {
+      prevUrl.current = url;
+      const hit = cache.get(url);
+      if (hit) {
+        setData(hit);
+        return;
+      }
+    }
+
+    if (cache.has(url)) return;
 
     let cancelled = false;
     setIsLoading(true);
@@ -19,6 +34,7 @@ export function useBiasComparison(
 
     fetchBiasComparison(title, source ?? "", url)
       .then((res) => {
+        cache.set(url, res);
         if (!cancelled) setData(res);
       })
       .catch((err) => {
