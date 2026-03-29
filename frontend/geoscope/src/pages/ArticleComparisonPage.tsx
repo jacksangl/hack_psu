@@ -91,16 +91,22 @@ export function ArticleComparisonPage() {
     title?: string;
     source?: string;
     url?: string;
+    description?: string | null;
+    otherSources?: Array<{ source: string; headline: string; summary: string; url: string }>;
   } | null;
 
   const articleUrl = state?.url ?? (encodedUrl ? decodeURIComponent(encodedUrl) : null);
   const articleTitle = state?.title ?? null;
   const articleSource = state?.source ?? null;
+  const articleDescription = state?.description ?? null;
+  const knownSources = state?.otherSources ?? null;
 
   const { data, isLoading, error } = useBiasComparison(
     articleTitle,
     articleSource,
-    articleUrl
+    articleUrl,
+    articleDescription,
+    knownSources,
   );
 
   return (
@@ -148,12 +154,33 @@ export function ArticleComparisonPage() {
                 {data.storyTitle}
               </h1>
               <p className="font-body text-sm text-wwn-text-variant">
-                Comparing coverage from {data.otherSources.length + 1} sources
+                {data.singleSource
+                  ? "Single-source result"
+                  : `Comparing coverage from ${data.otherSources.length + 1} sources`}
               </p>
             </header>
 
+            {data.singleSource && (
+              <section className="mb-8">
+                <div className="rounded-sm border border-dashed border-amber-500/25 bg-wwn-surface-low/75 p-6">
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="font-data text-[10px] font-semibold uppercase tracking-[0.15em] text-amber-300">
+                      ⚠ Only 1 source found
+                    </span>
+                    <span className="font-data text-[10px] uppercase tracking-[0.15em] text-wwn-text-variant">
+                      Comparison withheld
+                    </span>
+                  </div>
+                  <p className="mt-3 font-body text-sm leading-relaxed text-wwn-text-variant">
+                    A second distinct outlet did not match this story in the current search window, so the bias comparison
+                    breakdown is intentionally not generated.
+                  </p>
+                </div>
+              </section>
+            )}
+
             {/* Key Topics */}
-            {data.keyTopics && data.keyTopics.length > 0 && (
+            {!data.singleSource && data.keyTopics && data.keyTopics.length > 0 && (
               <section className="mb-8">
                 <h3 className="font-data text-[10px] font-semibold uppercase tracking-[0.15em] text-wwn-text-variant mb-3">
                   Key Topics
@@ -172,7 +199,7 @@ export function ArticleComparisonPage() {
             )}
 
             {/* Bullet summary */}
-            {data.bulletSummary && data.bulletSummary.length > 0 && (
+            {!data.singleSource && data.bulletSummary && data.bulletSummary.length > 0 && (
               <section className="mb-8">
                 <h3 className="font-data text-[10px] font-semibold uppercase tracking-[0.15em] text-wwn-text-variant mb-3">
                   Bullet-Point Summary
@@ -213,7 +240,7 @@ export function ArticleComparisonPage() {
             )}
 
             {/* Where sources agree */}
-            {data.consensus && data.consensus.length > 0 && (
+            {!data.singleSource && data.consensus && data.consensus.length > 0 && (
               <section className="mb-8">
                 <h3 className="font-data text-[10px] font-semibold uppercase tracking-[0.15em] text-wwn-text-variant mb-3">
                   Where Sources Agree
@@ -246,7 +273,7 @@ export function ArticleComparisonPage() {
             )}
 
             {/* Where sources differ */}
-            {data.disagreements && data.disagreements.length > 0 && (
+            {!data.singleSource && data.disagreements && data.disagreements.length > 0 && (
               <section className="mb-8">
                 <h3 className="font-data text-[10px] font-semibold uppercase tracking-[0.15em] text-wwn-text-variant mb-3">
                   Where Sources Differ
@@ -278,7 +305,7 @@ export function ArticleComparisonPage() {
             )}
 
             {/* Key differences (legacy field, still useful) */}
-            {data.keyDifferences.length > 0 && (
+            {!data.singleSource && data.keyDifferences.length > 0 && (
               <section className="mb-8">
                 <h3 className="font-data text-[10px] font-semibold uppercase tracking-[0.15em] text-wwn-text-variant mb-3">
                   Detailed Differences
@@ -298,7 +325,7 @@ export function ArticleComparisonPage() {
               </section>
             )}
 
-            {data.otherSources.length === 0 && data.keyDifferences.length === 0 && (
+            {data.singleSource && (
               <div className="p-5 bg-wwn-surface-low text-center">
                 <p className="font-body text-sm text-wwn-text-variant">
                   No other sources found covering this story yet.

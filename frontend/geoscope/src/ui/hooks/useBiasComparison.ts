@@ -1,12 +1,14 @@
 import { useState, useEffect, useRef } from "react";
-import { fetchBiasComparison, type BiasComparisonResponse } from "../../data/news/client";
+import { fetchBiasComparison, type BiasComparisonResponse, type SourceCoverage } from "../../data/news/client";
 
 const cache = new Map<string, BiasComparisonResponse>();
 
 export function useBiasComparison(
   title: string | null,
   source: string | null,
-  url: string | null
+  url: string | null,
+  description?: string | null,
+  knownSources?: SourceCoverage[] | null,
 ) {
   const cached = url ? cache.get(url) : undefined;
   const [data, setData] = useState<BiasComparisonResponse | null>(cached ?? null);
@@ -32,7 +34,7 @@ export function useBiasComparison(
     setIsLoading(true);
     setError(null);
 
-    fetchBiasComparison(title, source ?? "", url)
+    fetchBiasComparison(title, source ?? "", url, description, knownSources)
       .then((res) => {
         cache.set(url, res);
         if (!cancelled) setData(res);
@@ -47,7 +49,7 @@ export function useBiasComparison(
     return () => {
       cancelled = true;
     };
-  }, [title, source, url]);
+  }, [title, source, url, description, knownSources]);
 
   return { data, isLoading, error };
 }

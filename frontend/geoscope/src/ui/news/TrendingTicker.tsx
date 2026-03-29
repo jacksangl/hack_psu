@@ -103,6 +103,8 @@ export function TrendingTicker({ articles }: TrendingTickerProps) {
                         title: article.title,
                         source: article.source,
                         url: article.url,
+                        description: article.description,
+                        otherSources: article.otherSources,
                       },
                     })
                   }
@@ -128,7 +130,7 @@ export function TrendingTicker({ articles }: TrendingTickerProps) {
                     {article.title}
                   </p>
                   <span className="font-data text-[10px] text-wwn-text-variant mt-2 block">
-                    {formatTime(article.publishedAt)}
+                    {formatTime(article.publishedAt)} · {article.sourceCount} sources
                   </span>
                 </button>
               </div>

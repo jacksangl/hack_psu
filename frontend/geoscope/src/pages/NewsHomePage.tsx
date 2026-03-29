@@ -8,7 +8,7 @@ import type { TrendingArticle } from "../data/news/client";
 function groupByCategory(articles: TrendingArticle[]): Record<string, TrendingArticle[]> {
   const groups: Record<string, TrendingArticle[]> = {};
   for (const article of articles) {
-    const cat = article.category || "World";
+    const cat = (article.category || "world").toLowerCase();
     if (!groups[cat]) groups[cat] = [];
     groups[cat].push(article);
   }
@@ -16,17 +16,17 @@ function groupByCategory(articles: TrendingArticle[]): Record<string, TrendingAr
 }
 
 const CATEGORY_DISPLAY: Record<string, string> = {
-  Politics: "Politics",
-  Economy: "Finance",
-  Business: "Business",
-  Technology: "Technology",
-  Climate: "Climate",
-  Conflict: "World",
-  Health: "Health",
-  Diplomacy: "Diplomacy",
-  Sports: "Sports",
-  Culture: "Culture",
-  World: "World",
+  politics: "Politics",
+  economy: "Finance",
+  business: "Business",
+  technology: "Technology",
+  climate: "Climate",
+  conflict: "World",
+  health: "Health",
+  diplomacy: "Diplomacy",
+  sports: "Sports",
+  culture: "Culture",
+  world: "World",
 };
 
 export function NewsHomePage() {

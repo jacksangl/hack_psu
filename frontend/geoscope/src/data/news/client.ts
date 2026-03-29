@@ -63,6 +63,13 @@ export async function fetchGlobalSentiment(): Promise<SentimentResponse> {
 
 // ---- Trending news ----
 
+export interface SourceCoverage {
+  source: string;
+  headline: string;
+  summary: string;
+  url: string;
+}
+
 export interface TrendingArticle {
   id: string;
   title: string;
@@ -72,6 +79,9 @@ export interface TrendingArticle {
   description: string | null;
   imageUrl: string | null;
   category: string;
+  sourceCount: number;
+  singleSource: boolean;
+  otherSources: SourceCoverage[];
 }
 
 export interface TrendingResponse {
@@ -89,15 +99,6 @@ export async function fetchTrendingNews(
   return raw as TrendingResponse;
 }
 
-// ---- Bias comparison ----
-
-export interface SourceCoverage {
-  source: string;
-  headline: string;
-  summary: string;
-  url: string;
-}
-
 export interface BiasComparisonResponse {
   storyTitle: string;
   bulletSummary: string[];
@@ -107,15 +108,24 @@ export interface BiasComparisonResponse {
   keyTopics: string[];
   consensus: string[];
   disagreements: string[];
+  singleSource: boolean;
   cached: boolean;
 }
 
 export async function fetchBiasComparison(
   title: string,
   source: string,
-  url: string
+  url: string,
+  description?: string | null,
+  knownSources?: SourceCoverage[] | null,
 ): Promise<BiasComparisonResponse> {
   const params = new URLSearchParams({ title, source, url });
+  if (description) {
+    params.set("description", description);
+  }
+  if (knownSources && knownSources.length > 0) {
+    params.set("knownSources", JSON.stringify(knownSources));
+  }
   const raw = await fetchJson(`/api/article/compare?${params.toString()}`);
   return raw as BiasComparisonResponse;
 }

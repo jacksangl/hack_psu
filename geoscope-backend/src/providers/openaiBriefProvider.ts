@@ -112,14 +112,14 @@ export class OpenAIBriefProvider implements AiProvider {
             {
               role: "system",
               content:
-                "You are a geopolitical news editor. Use only the supplied article packet. Write a sharp 3-4 sentence synthesis, not a list of headlines. Lead with the dominant storyline, then explain what changed most recently, then note implications or cross-border links if present. Keep the wording concrete, sober, and information-dense. Return strict JSON that matches the schema exactly.",
+                "You are a geopolitical news editor. Use only the supplied article packet. Every claim must be grounded in the provided article titles, sources, descriptions, and timestamps. Do not invent facts, quotes, names, dates, or implications that are not explicitly supported by the packet. Write a sharp 3-4 sentence synthesis, not a list of headlines. Lead with the dominant storyline, then explain what changed most recently, then note implications or cross-border links only if present in the packet. Keep the wording concrete, sober, and information-dense. Return strict JSON that matches the schema exactly.",
             },
             {
               role: "user",
               content: JSON.stringify({
                 briefingPacket,
                 instructions:
-                  "Create an executive-style country brief, overall sentiment label, up to five key actors, and up to five topic tags. Avoid repeating article titles verbatim unless necessary. If coverage is mixed, say so explicitly. Prefer synthesis over chronology.",
+                  "Create an executive-style country brief, overall sentiment label, up to five key actors, and up to five topic tags. Ground the brief in the article packet fields only. Avoid repeating article titles verbatim unless necessary. If coverage is mixed, say so explicitly. Prefer synthesis over chronology.",
               }),
             },
           ],
@@ -155,7 +155,7 @@ export class OpenAIBriefProvider implements AiProvider {
   async generateComparison(params: GenerateComparisonParams): Promise<ComparisonDraft> {
     // Fallback — OpenAI comparison not implemented yet
     return {
-      storyTitle: params.originalTitle,
+      storyTitle: params.originalArticle.headline,
       bulletSummary: [],
       originalSummary: "",
       sourceSummaries: params.otherSources.map(() => ""),

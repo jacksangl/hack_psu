@@ -299,6 +299,29 @@ function buildFallbackComparison(
   };
 }
 
+function buildSingleSourceResponse(
+  params: { title: string; source: string; url: string; description?: string | null },
+): BiasComparisonData {
+  return {
+    storyTitle: params.title,
+    bulletSummary: [],
+    originalSource: {
+      source: params.source,
+      headline: params.title,
+      summary:
+        params.description?.trim()
+        || "Only one distinct source was found for this story in the current search window.",
+      url: params.url,
+    },
+    otherSources: [],
+    keyDifferences: [],
+    keyTopics: [],
+    consensus: [],
+    disagreements: [],
+    singleSource: true,
+  };
+}
+
 interface BiasComparisonServiceOptions {
   cacheStore: CacheStore;
   aiProvider: AiProvider;
@@ -320,6 +343,8 @@ export class BiasComparisonService {
     title: string;
     source: string;
     url: string;
+    description?: string | null;
+    knownSources?: SourceCoverage[];
   }): Promise<BiasComparisonResponse> {
     const hash = urlHash(params.url);
     const cacheKey = cacheKeys.biasComparison(hash);
@@ -328,7 +353,7 @@ export class BiasComparisonService {
   }
 
   private async computeComparison(
-    params: { title: string; source: string; url: string },
+    params: { title: string; source: string; url: string; description?: string | null; knownSources?: SourceCoverage[] },
     cacheKey: string,
   ): Promise<BiasComparisonResponse> {
     const cached = await this.cacheStore.getJson<BiasComparisonData>(cacheKey);
@@ -337,55 +362,74 @@ export class BiasComparisonService {
       return { ...cached, cached: true };
     }
 
-    const keywords = extractSearchTerms(params.title).join(" ");
-    logger.info("bias comparison search", {
-      keywords,
-      originalSource: params.source,
-    });
+    let otherArticles: RssItem[] = [];
+    let otherCoverages: SourceCoverage[];
 
-    const searchUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(keywords)}&hl=en&gl=US&ceid=US:en`;
-    const rawResults = await fetchRss(searchUrl);
-    const timeFiltered = filterByTimeProximity(rawResults, this.config.timeWindowHours);
-    const referenceTime = timeFiltered.reduce((latest, item) => {
-      const parsed = Date.parse(item.pubDate);
-      return Number.isNaN(parsed) ? latest : Math.max(latest, parsed);
-    }, 0);
+    // If the frontend already found sources (from trending data), use them directly
+    if (params.knownSources && params.knownSources.length > 0) {
+      logger.info("bias comparison using known sources", {
+        count: params.knownSources.length,
+        originalSource: params.source,
+      });
+      otherCoverages = params.knownSources;
+    } else {
+      // Fall back to searching Google News RSS
+      const keywords = extractSearchTerms(params.title).join(" ");
+      logger.info("bias comparison search", {
+        keywords,
+        originalSource: params.source,
+      });
 
-    const scoredMatches = timeFiltered
-      .map((item) => {
-        const candidateTitle = cleanHtml(item.title);
-        const candidateTime = Date.parse(item.pubDate);
-        return {
-          item,
-          score: eventMatchScore(
-            params.title,
-            candidateTitle,
-            referenceTime,
-            candidateTime,
-            this.config,
-          ),
-          similarity: headlineSimilarity(params.title, candidateTitle),
-        };
-      })
-      .filter(
-        ({ similarity, score }) =>
-          similarity >= this.config.minHeadlineSimilarity
-          || score >= this.config.minEventMatchScore,
-      )
-      .sort((left, right) => right.score - left.score);
+      const searchUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(keywords)}&hl=en&gl=US&ceid=US:en`;
+      const rawResults = await fetchRss(searchUrl);
+      const timeFiltered = filterByTimeProximity(rawResults, this.config.timeWindowHours);
+      const referenceTime = timeFiltered.reduce((latest, item) => {
+        const parsed = Date.parse(item.pubDate);
+        return Number.isNaN(parsed) ? latest : Math.max(latest, parsed);
+      }, 0);
 
-    const searchResults = scoredMatches.map(({ item }) => item);
+      const scoredMatches = timeFiltered
+        .map((item) => {
+          const candidateTitle = cleanHtml(item.title);
+          const candidateTime = Date.parse(item.pubDate);
+          return {
+            item,
+            score: eventMatchScore(
+              params.title,
+              candidateTitle,
+              referenceTime,
+              candidateTime,
+              this.config,
+            ),
+            similarity: headlineSimilarity(params.title, candidateTitle),
+          };
+        })
+        .filter(
+          ({ similarity, score }) =>
+            similarity >= this.config.minHeadlineSimilarity
+            || score >= this.config.minEventMatchScore,
+        )
+        .sort((left, right) => right.score - left.score);
 
-    const originalIdentity = sourceIdentity(params.source, params.url);
-    const seenSources = new Set<string>([originalIdentity]);
-    const otherArticles: RssItem[] = [];
+      const searchResults = scoredMatches.map(({ item }) => item);
 
-    for (const item of searchResults) {
-      const identity = sourceIdentity(item.source || "", item.link);
-      if (!seenSources.has(identity) && otherArticles.length < this.config.maxOtherSources) {
-        seenSources.add(identity);
-        otherArticles.push(item);
+      const originalIdentity = sourceIdentity(params.source, params.url);
+      const seenSources = new Set<string>([originalIdentity]);
+
+      for (const item of searchResults) {
+        const identity = sourceIdentity(item.source || "", item.link);
+        if (!seenSources.has(identity) && otherArticles.length < this.config.maxOtherSources) {
+          seenSources.add(identity);
+          otherArticles.push(item);
+        }
       }
+
+      otherCoverages = otherArticles.map((item) => ({
+        source: item.source || "Unknown",
+        headline: cleanHtml(item.title),
+        summary: item.description ? cleanHtml(item.description) : "",
+        url: item.link,
+      }));
     }
 
     const originalCoverage: SourceCoverage = {
@@ -395,12 +439,11 @@ export class BiasComparisonService {
       url: params.url,
     };
 
-    const otherCoverages: SourceCoverage[] = otherArticles.map((item) => ({
-      source: item.source || "Unknown",
-      headline: cleanHtml(item.title),
-      summary: "",
-      url: item.link,
-    }));
+    if (otherCoverages.length === 0) {
+      const singleSourceResponse = buildSingleSourceResponse(params);
+      await this.cacheStore.setJson(cacheKey, singleSourceResponse, this.config.cacheTtlSeconds);
+      return { ...singleSourceResponse, cached: false };
+    }
 
     const fallbackDraft = buildFallbackComparison(
       params,
@@ -411,62 +454,69 @@ export class BiasComparisonService {
     fallbackDraft.originalSource.url = params.url;
     originalCoverage.summary = fallbackDraft.originalSource.summary;
 
-    if (otherCoverages.length > 0) {
-      try {
-        const aiResult = await this.aiProvider.generateComparison({
-          originalTitle: params.title,
-          originalSource: params.source,
-          otherSources: otherCoverages.map((coverage) => ({
+    try {
+      const aiResult = await this.aiProvider.generateComparison({
+        originalArticle: {
+          source: params.source,
+          headline: params.title,
+          description: params.description ?? null,
+        },
+        otherSources: otherCoverages.map((coverage) => {
+          const matchingArticle = otherArticles.find((article) => article.link === coverage.url);
+          const description = matchingArticle?.description
+            ? cleanHtml(matchingArticle.description)
+            : coverage.summary || null;
+
+          return {
             source: coverage.source,
             headline: coverage.headline,
-            description:
-              otherArticles.find((article) => article.link === coverage.url)?.description ?? null,
-          })),
-        });
+            description,
+          };
+        }),
+      });
 
-        originalCoverage.summary =
-          aiResult.originalSummary || fallbackDraft.originalSource.summary;
+      originalCoverage.summary =
+        aiResult.originalSummary || fallbackDraft.originalSource.summary;
 
-        for (let i = 0; i < otherCoverages.length; i++) {
-          otherCoverages[i].summary =
-            aiResult.sourceSummaries[i]
-            ?? `Coverage from ${otherCoverages[i].source} centers on "${otherCoverages[i].headline}".`;
-        }
-
-        const response: BiasComparisonData = {
-          storyTitle: aiResult.storyTitle || fallbackDraft.storyTitle,
-          bulletSummary:
-            aiResult.bulletSummary.length > 0
-              ? aiResult.bulletSummary
-              : fallbackDraft.bulletSummary,
-          originalSource: originalCoverage,
-          otherSources: otherCoverages,
-          keyDifferences:
-            aiResult.keyDifferences.length > 0
-              ? aiResult.keyDifferences
-              : fallbackDraft.keyDifferences,
-          keyTopics:
-            aiResult.keyTopics.length > 0
-              ? aiResult.keyTopics
-              : fallbackDraft.keyTopics,
-          consensus:
-            aiResult.consensus.length > 0
-              ? aiResult.consensus
-              : fallbackDraft.consensus,
-          disagreements:
-            aiResult.disagreements.length > 0
-              ? aiResult.disagreements
-              : fallbackDraft.disagreements,
-          singleSource: false,
-        };
-
-        await this.cacheStore.setJson(cacheKey, response, this.config.cacheTtlSeconds);
-        return { ...response, cached: false };
-      } catch (error) {
-        logger.warn("AI comparison failed, returning raw articles", {
-          error: error instanceof Error ? error.message : "unknown",
-        });
+      for (let i = 0; i < otherCoverages.length; i++) {
+        otherCoverages[i].summary =
+          aiResult.sourceSummaries[i]
+          ?? `Coverage from ${otherCoverages[i].source} centers on "${otherCoverages[i].headline}".`;
       }
+
+      const response: BiasComparisonData = {
+        storyTitle: aiResult.storyTitle || fallbackDraft.storyTitle,
+        bulletSummary:
+          aiResult.bulletSummary.length > 0
+            ? aiResult.bulletSummary
+            : fallbackDraft.bulletSummary,
+        originalSource: originalCoverage,
+        otherSources: otherCoverages,
+        keyDifferences:
+          aiResult.keyDifferences.length > 0
+            ? aiResult.keyDifferences
+            : fallbackDraft.keyDifferences,
+        keyTopics:
+          aiResult.keyTopics.length > 0
+            ? aiResult.keyTopics
+            : fallbackDraft.keyTopics,
+        consensus:
+          aiResult.consensus.length > 0
+            ? aiResult.consensus
+            : fallbackDraft.consensus,
+        disagreements:
+          aiResult.disagreements.length > 0
+            ? aiResult.disagreements
+            : fallbackDraft.disagreements,
+        singleSource: false,
+      };
+
+      await this.cacheStore.setJson(cacheKey, response, this.config.cacheTtlSeconds);
+      return { ...response, cached: false };
+    } catch (error) {
+      logger.warn("AI comparison failed, returning raw articles", {
+        error: error instanceof Error ? error.message : "unknown",
+      });
     }
 
     const fallback: BiasComparisonData = {

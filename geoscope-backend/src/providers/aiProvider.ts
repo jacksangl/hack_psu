@@ -8,8 +8,11 @@ export interface GenerateBriefParams {
 }
 
 export interface GenerateComparisonParams {
-  originalTitle: string;
-  originalSource: string;
+  originalArticle: {
+    source: string;
+    headline: string;
+    description: string | null;
+  };
   otherSources: Array<{
     source: string;
     headline: string;

@@ -1,3 +1,5 @@
+import type { SourceCoverage } from "./biasComparison";
+
 export interface TrendingArticle {
   id: string;
   title: string;
@@ -8,6 +10,8 @@ export interface TrendingArticle {
   imageUrl: string | null;
   category: string;
   sourceCount: number;
+  singleSource: boolean;
+  otherSources: SourceCoverage[];
 }
 
 export interface TrendingResponseData {

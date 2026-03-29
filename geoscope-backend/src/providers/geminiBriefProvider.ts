@@ -67,7 +67,7 @@ export class GeminiBriefProvider implements AiProvider {
 
 Write the summary as a synthesis, not a headline list. Lead with the dominant storyline, explain what changed most recently, and include cross-border implications if the article set supports it. Avoid filler.
 
-IMPORTANT: Only use information from the provided articles. Do not invent or assume facts, names, dates, or events not present in the briefing packet. Every claim in the summary must be traceable to at least one article below.
+IMPORTANT: Only use information from the provided articles. Each article entry includes title, source, description, publishedAt, topics, relatedCountries, and sentiment. Do not invent or assume facts, names, dates, or events not present in the briefing packet. Every claim in the summary must be traceable to at least one article below.
 
 Briefing packet:
 ${JSON.stringify(briefingPacket)}
@@ -109,13 +109,13 @@ Return ONLY valid JSON, no markdown fences.`;
 
   async generateComparison(params: GenerateComparisonParams): Promise<ComparisonDraft> {
     const sourcesInfo = params.otherSources
-      .map((s, i) => `Source ${i + 1} (${s.source}): "${s.headline}"${s.description ? ` - ${s.description}` : ""}`)
+      .map((s, i) => `Source ${i + 1}\n- Outlet: ${s.source}\n- Title: ${s.headline}\n- Description: ${s.description ?? "Not provided"}`)
       .join("\n");
 
     const prompt = `You are a media analyst. Given the following news article and how other outlets covered the SAME SPECIFIC EVENT (not just the same topic), produce a JSON object with these exact fields:
 - "storyTitle": a neutral, factual title for this story (not from any single source)
 - "bulletSummary": an array of 3-5 concise bullet points summarizing the core event and the main coverage takeaways
-- "originalSummary": 1-2 sentences summarizing how the original source (${params.originalSource}) framed this story based on their headline: "${params.originalTitle}"
+- "originalSummary": 1-2 sentences summarizing how the original source framed this story based only on the original title and description provided below
 - "sourceSummaries": an array of strings, one per other source, each 1-2 sentences summarizing that outlet's framing/angle
 - "keyDifferences": an array of 2-4 strings, each describing a notable difference in how the sources covered this story (tone, emphasis, framing, omissions). Do NOT rate or label bias — just describe factual differences.
 - "keyTopics": an array of 3-5 key topics or themes this story covers (e.g. "US Foreign Policy", "Civilian Casualties", "NATO Response")
@@ -124,9 +124,12 @@ Return ONLY valid JSON, no markdown fences.`;
 
 Only include sources that are clearly covering the same specific event, not just the same general topic.
 
-IMPORTANT: Only use information from the headlines and descriptions provided below. Do not invent or assume facts, quotes, or details not present in the source material. Every claim must be traceable to at least one source listed here.
+IMPORTANT: Only use information from the titles, outlet names, and descriptions provided below. Do not invent or assume facts, quotes, dates, or details not present in the source material. If the provided material does not support a claim, omit it. Every claim must be traceable to at least one source listed here.
 
-Original article (${params.originalSource}): "${params.originalTitle}"
+Original article:
+- Outlet: ${params.originalArticle.source}
+- Title: ${params.originalArticle.headline}
+- Description: ${params.originalArticle.description ?? "Not provided"}
 
 Other sources:
 ${sourcesInfo}
@@ -165,7 +168,7 @@ Return ONLY valid JSON, no markdown fences.`;
         storyTitle:
           typeof parsed.storyTitle === "string" && parsed.storyTitle.trim()
             ? parsed.storyTitle
-            : params.originalTitle,
+            : params.originalArticle.headline,
         bulletSummary: this.stringArray(parsed.bulletSummary),
         originalSummary:
           typeof parsed.originalSummary === "string" ? parsed.originalSummary : "",
@@ -177,7 +180,7 @@ Return ONLY valid JSON, no markdown fences.`;
       };
     } catch {
       return {
-        storyTitle: params.originalTitle,
+        storyTitle: params.originalArticle.headline,
         bulletSummary: [],
         originalSummary: "",
         sourceSummaries: params.otherSources.map(() => ""),

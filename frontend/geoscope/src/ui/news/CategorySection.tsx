@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import type { TrendingArticle } from "../../data/news/client";
+import { StoryCoverageInline } from "./StoryCoverageInline";
 
 interface CategorySectionProps {
   title: string;
@@ -26,6 +27,8 @@ export function CategorySection({ title, articles }: CategorySectionProps) {
                   title: article.title,
                   source: article.source,
                   url: article.url,
+                  description: article.description,
+                  otherSources: article.otherSources,
                 },
               })
             }
@@ -50,7 +53,23 @@ export function CategorySection({ title, articles }: CategorySectionProps) {
                   day: "numeric",
                 })}
               </span>
+              <span className="text-wwn-text-variant">·</span>
+              <span className="font-data text-wwn-text-variant uppercase tracking-wider">
+                {article.sourceCount} sources
+              </span>
             </div>
+            <StoryCoverageInline
+              compact
+              sourceCount={article.sourceCount}
+              singleSource={article.singleSource}
+              originalSource={{
+                source: article.source,
+                headline: article.title,
+                summary: article.description ?? "",
+                url: article.url,
+              }}
+              otherSources={article.otherSources}
+            />
           </button>
         ))}
       </div>

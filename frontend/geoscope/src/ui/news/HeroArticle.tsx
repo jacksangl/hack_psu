@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import type { TrendingArticle } from "../../data/news/client";
+import { StoryCoverageInline } from "./StoryCoverageInline";
 
 interface HeroArticleProps {
   article: TrendingArticle;
@@ -22,6 +23,8 @@ export function HeroArticle({ article }: HeroArticleProps) {
             title: article.title,
             source: article.source,
             url: article.url,
+            description: article.description,
+            otherSources: article.otherSources,
           },
         })
       }
@@ -62,7 +65,22 @@ export function HeroArticle({ article }: HeroArticleProps) {
               <span className="font-data text-xs">
                 {publishedLabel}
               </span>
+              <span className="text-white/40">·</span>
+              <span className="font-data text-xs uppercase tracking-wider text-white/65">
+                {article.sourceCount} sources
+              </span>
             </div>
+            <StoryCoverageInline
+              sourceCount={article.sourceCount}
+              singleSource={article.singleSource}
+              originalSource={{
+                source: article.source,
+                headline: article.title,
+                summary: article.description ?? "",
+                url: article.url,
+              }}
+              otherSources={article.otherSources}
+            />
           </div>
         </div>
       </div>

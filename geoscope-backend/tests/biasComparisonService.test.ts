@@ -54,14 +54,14 @@ describe("BiasComparisonService", () => {
         description: "Duplicate source",
       },
       {
-        title: "Same story from MMA Junkie",
+        title: "UFC Seattle live results: Israel Adesanya vs. Joe Pyfer live updates - MMA Junkie",
         link: "https://news.google.com/rss/articles/source-2",
         source: "MMA Junkie",
         pubDate: "2026-03-29T00:00:00Z",
         description: "MMA Junkie framing",
       },
       {
-        title: "Same story from CBS Sports",
+        title: "UFC Seattle live results: Israel Adesanya vs. Joe Pyfer updates - CBS Sports",
         link: "https://news.google.com/rss/articles/source-3",
         source: "CBS Sports",
         pubDate: "2026-03-29T00:00:00Z",
@@ -132,5 +132,35 @@ describe("BiasComparisonService", () => {
     expect(response.bulletSummary.length).toBeGreaterThan(0);
     expect(response.consensus.length).toBeGreaterThan(0);
     expect(response.disagreements.length).toBeGreaterThan(0);
+  });
+
+  it("returns a single-source flag instead of fabricating a comparison", async () => {
+    fetchRssMock.mockResolvedValue([
+      {
+        title: "Original outlet repeats the same headline",
+        link: "https://news.google.com/rss/articles/source-only",
+        source: "AP News",
+        pubDate: "2026-03-29T00:00:00Z",
+        description: "AP description",
+      },
+    ]);
+
+    const service = new BiasComparisonService({
+      aiProvider,
+      cacheStore,
+    });
+
+    const response = await service.compare({
+      source: "AP News",
+      title: "Aid convoy reaches the border after overnight delay",
+      url: "https://example.com/original",
+      description: "Original article description",
+    });
+
+    expect(response.singleSource).toBe(true);
+    expect(response.otherSources).toEqual([]);
+    expect(response.bulletSummary).toEqual([]);
+    expect(response.keyDifferences).toEqual([]);
+    expect(aiProvider.generateComparison).not.toHaveBeenCalled();
   });
 });
