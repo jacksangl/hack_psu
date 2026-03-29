@@ -6,6 +6,12 @@ import { sentimentToHex, type Sentiment } from "../../../utils/sentimentColors";
 import { Html } from "@react-three/drei";
 import { useGlobeVisibility } from "../../hooks/useGlobeVisibility";
 
+const PIN_REFERENCE_CAMERA_DISTANCE = 6;
+const PIN_MIN_SCALE = 0.45;
+const PIN_MAX_SCALE = 1.2;
+const PIN_SCALE_CURVE = 1.08;
+const PIN_HOVER_MULTIPLIER = 1.16;
+
 interface NewsPinProps {
   lat: number;
   lng: number;
@@ -46,9 +52,19 @@ function NewsPinComponent({
     document.body.style.cursor = "default";
   }, [isVisible]);
 
-  useFrame(() => {
+  useFrame((state) => {
     if (!groupRef.current) return;
-    targetScale.current = hovered ? 1.3 : 1;
+    const cameraDistance = state.camera.position.length();
+    const zoomScale = THREE.MathUtils.clamp(
+      Math.pow(cameraDistance / PIN_REFERENCE_CAMERA_DISTANCE, PIN_SCALE_CURVE),
+      PIN_MIN_SCALE,
+      PIN_MAX_SCALE
+    );
+
+    targetScale.current = hovered
+      ? zoomScale * PIN_HOVER_MULTIPLIER
+      : zoomScale;
+
     const s = groupRef.current.scale.x;
     if (Math.abs(s - targetScale.current) < 0.001) return;
     const next = THREE.MathUtils.lerp(s, targetScale.current, 0.15);

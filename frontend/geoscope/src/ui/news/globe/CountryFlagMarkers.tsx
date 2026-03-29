@@ -1,4 +1,5 @@
 import { Html } from "@react-three/drei";
+import { useFrame } from "@react-three/fiber";
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { useCountryVisualHeatData } from "../../../data/news/hooks/useCountryVisualHeatData";
@@ -7,6 +8,14 @@ import { getCountryByCode } from "../../../utils/countryData";
 import { latLngToVector3 } from "../../../utils/geoHelpers";
 import { heatToHex } from "../../../utils/heatmapColors";
 import { useGlobeVisibility } from "../../hooks/useGlobeVisibility";
+
+const FLAG_REFERENCE_CAMERA_DISTANCE = 6;
+const FLAG_MIN_SCALE = 0.38;
+const FLAG_MAX_SCALE = 1.08;
+const FLAG_SCALE_CURVE = 1.24;
+const FLAG_BASE_SIZE_PX = 32;
+const FLAG_BASE_FONT_SIZE_PX = 16;
+const FLAG_BASE_PADDING_X_PX = 6;
 
 interface CountryFlagMarkerProps {
   countryCode: string;
@@ -29,8 +38,11 @@ const CountryFlagMarker = memo(function CountryFlagMarker({
   const clearSelectedCountry = useGlobeStore((s) => s.clearSelectedCountry);
   const selectedCountry = useGlobeStore((s) => s.selectedCountry);
   const groupRef = useRef<THREE.Group>(null);
+  const contentRef = useRef<THREE.Group>(null);
   const isVisible = useGlobeVisibility(groupRef);
   const [hovered, setHovered] = useState(false);
+  const [htmlScale, setHtmlScale] = useState(1);
+  const htmlScaleRef = useRef(1);
 
   const position = useMemo(
     () => latLngToVector3(lat, lng, 2.012),
@@ -64,6 +76,37 @@ const CountryFlagMarker = memo(function CountryFlagMarker({
     }
   }, [isVisible]);
 
+  useFrame((state) => {
+    if (!contentRef.current) return;
+
+    const cameraDistance = state.camera.position.length();
+    const zoomScale = THREE.MathUtils.clamp(
+      Math.pow(
+        cameraDistance / FLAG_REFERENCE_CAMERA_DISTANCE,
+        FLAG_SCALE_CURVE
+      ),
+      FLAG_MIN_SCALE,
+      FLAG_MAX_SCALE
+    );
+
+    const currentScale = contentRef.current.scale.x;
+    if (Math.abs(currentScale - zoomScale) < 0.001) return;
+
+    const nextScale = THREE.MathUtils.lerp(currentScale, zoomScale, 0.14);
+    contentRef.current.scale.setScalar(nextScale);
+
+    if (Math.abs(htmlScaleRef.current - nextScale) > 0.01) {
+      htmlScaleRef.current = nextScale;
+      setHtmlScale(nextScale);
+    }
+  });
+
+  const interactionScale = isSelected ? 1.1 : hovered ? 1.05 : 1;
+  const interactionLift = (isSelected || hovered ? -2 : 0) * htmlScale;
+  const badgeSizePx = FLAG_BASE_SIZE_PX * htmlScale;
+  const badgePaddingXPx = FLAG_BASE_PADDING_X_PX * htmlScale;
+  const badgeFontSizePx = FLAG_BASE_FONT_SIZE_PX * htmlScale;
+
   return (
     <group
       ref={groupRef}
@@ -71,7 +114,7 @@ const CountryFlagMarker = memo(function CountryFlagMarker({
       quaternion={quaternion}
     >
       {isVisible && (
-        <>
+        <group ref={contentRef}>
           <mesh position={[0, 0.045, 0]}>
             <cylinderGeometry args={[0.003, 0.003, 0.09, 6]} />
             <meshBasicMaterial
@@ -89,7 +132,6 @@ const CountryFlagMarker = memo(function CountryFlagMarker({
           <Html
             position={[0, 0.145, 0]}
             center
-            distanceFactor={7}
             style={{ pointerEvents: "auto" }}
             zIndexRange={[14, 0]}
           >
@@ -115,30 +157,34 @@ const CountryFlagMarker = memo(function CountryFlagMarker({
               }}
               className={`
                 flex items-center justify-center
-                min-w-8 h-8 px-1.5 rounded-md border
+                rounded-md border
                 bg-slate-950/80 backdrop-blur-sm
                 shadow-[0_10px_28px_rgba(2,6,23,0.35)]
                 transition-all duration-200
                 select-none
-                ${isSelected ? "scale-110 -translate-y-0.5" : ""}
-                ${!isSelected && hovered ? "scale-105 -translate-y-0.5" : ""}
               `}
               style={{
                 borderColor,
                 boxShadow: isSelected
                   ? `0 0 0 1px rgba(248,250,252,0.2), 0 10px 26px ${glowColor}`
                   : undefined,
+                minWidth: `${badgeSizePx}px`,
+                height: `${badgeSizePx}px`,
+                paddingLeft: `${badgePaddingXPx}px`,
+                paddingRight: `${badgePaddingXPx}px`,
+                transform: `translateY(${interactionLift}px) scale(${interactionScale})`,
+                transformOrigin: "center center",
               }}
             >
               <span
                 aria-hidden="true"
-                style={{ fontSize: "16px", lineHeight: 1 }}
+                style={{ fontSize: `${badgeFontSizePx}px`, lineHeight: 1 }}
               >
                 {flag}
               </span>
             </button>
           </Html>
-        </>
+        </group>
       )}
     </group>
   );
