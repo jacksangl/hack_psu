@@ -10,6 +10,7 @@ export const createSentimentController = (sentimentService: SentimentService): R
 ) => {
   try {
     const response = await sentimentService.getGlobalSentiment();
+    res.set("Cache-Control", "public, max-age=180, stale-while-revalidate=600");
     res.json(globalSentimentResponseSchema.parse(response));
   } catch (error) {
     next(error);

@@ -22,6 +22,7 @@ export const createNewsController = (newsService: NewsService): RequestHandler =
       topic: query.topic,
     });
 
+    res.set("Cache-Control", "public, max-age=120, stale-while-revalidate=300");
     res.json(newsResponseSchema.parse(response));
   } catch (error) {
     next(error);

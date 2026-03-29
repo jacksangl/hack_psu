@@ -1,13 +1,13 @@
 # GeoScope
 
-An interactive 3D globe that visualizes global news sentiment in real time. News articles are scraped from RSS feeds worldwide — no API keys required for news data. Click any country to explore AI-generated briefs, articles, and sentiment analysis.
+An interactive 3D globe that visualizes global news sentiment in real time. News articles are scraped from RSS feeds worldwide. Click any country to explore AI-generated briefs, articles, and sentiment analysis.
 
 ## Tech Stack
 
 - **Frontend:** React, Three.js / React Three Fiber, Zustand, Tailwind CSS, Vite
 - **Backend:** Node.js, Express, TypeScript, PostgreSQL, Redis
 - **News Source:** RSS scraping (Google News, BBC, Al Jazeera, NYT, Guardian, Sky News)
-- **AI Briefs:** Google Gemini API (free tier)
+- **AI Briefs:** Google Gemini API
 
 ## Prerequisites
 

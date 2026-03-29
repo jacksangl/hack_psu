@@ -2,7 +2,7 @@ import * as cheerio from "cheerio";
 import { logger } from "../lib/logger";
 import type { FetchCountryNewsParams, NewsProvider, ProviderNewsArticle } from "./newsProvider";
 
-const FETCH_TIMEOUT_MS = 12_000;
+const FETCH_TIMEOUT_MS = 8_000;
 
 /** Major international RSS feeds grouped by region/scope. */
 const GLOBAL_RSS_FEEDS = [
@@ -120,6 +120,7 @@ export async function fetchRss(url: string): Promise<RssItem[]> {
       headers: {
         "User-Agent": "GeoScope/1.0 (news aggregator)",
         Accept: "application/rss+xml, application/xml, text/xml",
+        "Accept-Encoding": "gzip, deflate",
       },
     });
 
@@ -330,33 +331,34 @@ export class RssScraperProvider implements NewsProvider {
       }
     };
 
-    // Strategy 1: Google News search for this specific country (most targeted)
-    const googleUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(params.countryName + " news")}&hl=en&gl=US&ceid=US:en`;
-    const googleItems = await fetchRss(googleUrl);
-    addItems(googleItems);
+    // Strategies 1+2: Fire both Google News searches in parallel
+    const googleUrl1 = `https://news.google.com/rss/search?q=${encodeURIComponent(params.countryName + " news")}&hl=en&gl=US&ceid=US:en`;
+    const googleUrl2 = `https://news.google.com/rss/search?q=${encodeURIComponent(params.countryName)}&hl=en&gl=US&ceid=US:en`;
 
-    // Strategy 2: If not enough, search with just the country name
+    // Also pre-fetch regional + global feeds in parallel (they're cached so this is cheap on repeat calls)
+    const region = COUNTRY_REGION[params.countryCode];
+    const [googleItems1, googleItems2, regionalItems, globalItems] = await Promise.all([
+      fetchRss(googleUrl1),
+      googleUrl2 !== googleUrl1 ? fetchRss(googleUrl2) : Promise.resolve([] as RssItem[]),
+      region ? getRegionalFeedItems(region) : Promise.resolve([] as RssItem[]),
+      getGlobalFeedItems(),
+    ]);
+
+    // Add results in priority order (most targeted first)
+    addItems(googleItems1);
+
     if (articles.length < params.limit) {
-      const googleUrl2 = `https://news.google.com/rss/search?q=${encodeURIComponent(params.countryName)}&hl=en&gl=US&ceid=US:en`;
-      if (googleUrl2 !== googleUrl) {
-        const items2 = await fetchRss(googleUrl2);
-        addItems(items2);
-      }
+      addItems(googleItems2);
     }
 
-    // Strategy 3: Regional BBC feed for this country's region
+    // Strategy 3: Regional BBC feed — filter for country mentions
     if (articles.length < params.limit) {
-      const region = COUNTRY_REGION[params.countryCode];
-      if (region) {
-        const regionalItems = await getRegionalFeedItems(region);
-        const matched = regionalItems.filter((item) => mentionsCountry(item, params.countryName));
-        addItems(matched);
-      }
+      const matched = regionalItems.filter((item) => mentionsCountry(item, params.countryName));
+      addItems(matched);
     }
 
     // Strategy 4: Global feeds (cached) — filter for country mentions
     if (articles.length < params.limit) {
-      const globalItems = await getGlobalFeedItems();
       const matched = globalItems.filter((item) => mentionsCountry(item, params.countryName));
       addItems(matched);
     }

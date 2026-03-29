@@ -14,6 +14,7 @@ export const createBriefController = (briefService: BriefService): RequestHandle
     const params = validated.params as BriefParams;
 
     const response = await briefService.getCountryBrief(params.countryCode);
+    res.set("Cache-Control", "public, max-age=120, stale-while-revalidate=300");
     res.json(briefResponseSchema.parse(response));
   } catch (error) {
     next(error);

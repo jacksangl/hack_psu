@@ -17,22 +17,33 @@ export function useCountryData(countryCode: string | null) {
   useEffect(() => {
     if (!countryCode) return;
 
+    // Skip fetching if we already have both news and brief cached in store
+    if (news && brief) return;
+
     let cancelled = false;
     setLoading(true);
     setError(null);
 
-    Promise.all([
-      fetchCountryNews(countryCode),
-      fetchCountryBrief(countryCode),
-    ])
-      .then(([newsData, briefData]) => {
-        if (cancelled) return;
-        setCountryNews(countryCode, newsData);
-        setCountryBrief(countryCode, briefData);
-      })
+    // Load news and brief independently so whichever finishes first renders immediately
+    const newsPromise = news
+      ? Promise.resolve(news)
+      : fetchCountryNews(countryCode)
+          .then((data) => {
+            if (!cancelled) setCountryNews(countryCode, data);
+            return data;
+          });
+
+    const briefPromise = brief
+      ? Promise.resolve(brief)
+      : fetchCountryBrief(countryCode)
+          .then((data) => {
+            if (!cancelled) setCountryBrief(countryCode, data);
+            return data;
+          });
+
+    Promise.all([newsPromise, briefPromise])
       .catch((err: Error) => {
-        if (cancelled) return;
-        setError(err.message);
+        if (!cancelled) setError(err.message);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -41,7 +52,7 @@ export function useCountryData(countryCode: string | null) {
     return () => {
       cancelled = true;
     };
-  }, [countryCode, setCountryNews, setCountryBrief, setLoading, setError]);
+  }, [countryCode, setCountryNews, setCountryBrief, setLoading, setError, news, brief]);
 
   return { news, brief };
 }
