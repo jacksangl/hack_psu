@@ -256,7 +256,25 @@ export function CountryHeatmap() {
       }
     }
 
+    // Fade out polar caps to prevent equirectangular stripe convergence artifacts
+    const POLE_FADE_PX = 260;
+    ctx.globalCompositeOperation = "destination-out";
     ctx.globalAlpha = 1;
+
+    const northGrad = ctx.createLinearGradient(0, 0, 0, POLE_FADE_PX);
+    northGrad.addColorStop(0, "rgba(0,0,0,1)");
+    northGrad.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = northGrad;
+    ctx.fillRect(0, 0, TEX_W, POLE_FADE_PX);
+
+    const southGrad = ctx.createLinearGradient(0, TEX_H - POLE_FADE_PX, 0, TEX_H);
+    southGrad.addColorStop(0, "rgba(0,0,0,0)");
+    southGrad.addColorStop(1, "rgba(0,0,0,1)");
+    ctx.fillStyle = southGrad;
+    ctx.fillRect(0, TEX_H - POLE_FADE_PX, TEX_W, POLE_FADE_PX);
+
+    ctx.globalCompositeOperation = "source-over";
+
     const texture = new THREE.CanvasTexture(canvas);
     texture.colorSpace = THREE.SRGBColorSpace;
     return texture;

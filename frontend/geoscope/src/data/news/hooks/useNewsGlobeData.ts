@@ -24,24 +24,28 @@ export function useNewsGlobeData() {
   const globalSentiment = useGlobeStore((state) => state.globalSentiment);
   const setCountryNews = useGlobeStore((state) => state.setCountryNews);
   const connectDotsMode = useGlobeStore((state) => state.connectDotsMode);
+  const selectedCategory = useGlobeStore((state) => state.selectedCategory);
   const prefetchFailedCodesRef = useRef(new Set<string>());
   const prefetchInFlightCodesRef = useRef(new Set<string>());
 
   const pins = useMemo(() => {
     const newsData = selectedCountry ? countryNews[selectedCountry] : null;
-    const pinData: PinData[] =
-      newsData?.articles.map((article) => ({
-        id: article.id,
-        title: article.title,
-        lat: article.lat,
-        lng: article.lng,
-        sentiment: article.sentiment,
-        url: article.url,
-        source: article.source,
-      })) ?? [];
+    const articles = newsData?.articles ?? [];
+    const filtered = selectedCategory
+      ? articles.filter((a) => a.category === selectedCategory)
+      : articles;
+    const pinData: PinData[] = filtered.map((article) => ({
+      id: article.id,
+      title: article.title,
+      lat: article.lat,
+      lng: article.lng,
+      sentiment: article.sentiment,
+      url: article.url,
+      source: article.source,
+    }));
 
     return clusterPins(pinData);
-  }, [selectedCountry, countryNews]);
+  }, [selectedCountry, countryNews, selectedCategory]);
 
   const markerCountryCodes = useMemo(() => {
     const prioritized = Object.values(globalSentiment)
@@ -127,7 +131,11 @@ export function useNewsGlobeData() {
         continue;
       }
 
-      for (const article of newsData.articles) {
+      const filteredArticles = selectedCategory
+        ? newsData.articles.filter((a) => a.category === selectedCategory)
+        : newsData.articles;
+
+      for (const article of filteredArticles) {
         for (const relatedCode of article.relatedCountries) {
           const targetCountry = getCountryByCode(relatedCode);
           if (!targetCountry || relatedCode === sourceCode) {
@@ -150,15 +158,15 @@ export function useNewsGlobeData() {
             startLng: sourceCountry.lng,
             endLat: targetCountry.lat,
             endLng: targetCountry.lng,
-            color: isSelectedArc ? "#F59E0B" : "#14B8A6",
-            opacity: isSelectedArc ? 0.8 : 0.28,
+            color: isSelectedArc ? "#FBBF24" : "#2DD4BF",
+            opacity: isSelectedArc ? 0.9 : 0.55,
           });
         }
       }
     }
 
     return arcList;
-  }, [connectDotsMode, connectDotsCountryCodes, selectedCountry, countryNews]);
+  }, [connectDotsMode, connectDotsCountryCodes, selectedCountry, countryNews, selectedCategory]);
 
   return { pins, arcs };
 }
